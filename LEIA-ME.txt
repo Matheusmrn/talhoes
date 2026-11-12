@@ -1,0 +1,121 @@
+MONITORAMENTO DE TALHÕES – NDVI / NDMI / NDRE          Matheus Marin
+====================================================================
+
+O QUE TEM NESTA PASTA
+  index.html                 o aplicativo
+  Abrir Monitoramento.bat    abre o app numa janela própria (Microsoft Edge)
+  lib\                       bibliotecas do mapa, do desenho e do PDF (não apague)
+  js\                        partes novas do app: painel, pastagem, campo/GPS (não apague)
+  icons\, manifest.webmanifest, sw.js   arquivos para instalar como app no celular
+  versao_anterior\           a versão anterior do app, por segurança
+  LEIA-ME.txt                este arquivo
+
+NOVIDADES
+- Painel da fazenda: "Atualizar todos" busca a imagem limpa mais recente de cada
+  talhão (só os números, rápido) e mostra NDVI, tendência, forragem estimada,
+  água na vegetação e a situação da rotação (ocupado / descanso / pronto).
+  Avisa quando o NDVI cai mais que o limite configurado.
+- Pastagem: massa de forragem estimada (kg MS/ha) e quantos dias o pasto dá para
+  o lote. A conta é MS = A × NDVI + B: calibre em "⚙ Ajustes" com medições suas
+  (quadrado de 1 m²). Ali também ficam consumo por animal, resíduo, descanso etc.
+- Água: semáforo de umidade da vegetação (NDMI) com a chuva dos últimos 30 dias.
+- Previsão do tempo de 7 dias com balanço chuva × evapotranspiração.
+- "Comparar com o ano passado": linha tracejada no gráfico com o NDVI do mesmo
+  período do ano anterior.
+- "Efeito do manejo": dias que cada piquete levou para se recuperar após a saída
+  do gado e a resposta do NDVI/NDRE a cada adubação registrada no diário.
+- "⇆ Comparar" (barra do mapa): antes × depois com cortina, lado a lado ou mapa
+  da diferença entre duas datas.
+- Os relatórios ficam guardados: ao abrir um talhão já processado, o último
+  relatório aparece na hora (botão "Atualizar agora" para refazer).
+- Diário com local e foto: botões 📍 Local (GPS ou toque no mapa) e 📷 Foto.
+  Os pontos aparecem no mapa. As fotos vão junto no "Exportar backup".
+- GPS no mapa (botão ◎): mostra onde você está e o NDVI daquele ponto.
+- "Desenhar caminhando (GPS)": ande pela divisa com o celular e o contorno é
+  gravado sozinho.
+- Tema escuro: botão da lua no topo (automático → escuro → claro).
+
+NO CELULAR (APP INSTALÁVEL)
+- O layout se adapta ao celular: menu embaixo (Mapa, Talhões, Painel,
+  Relatório) e a lista de talhões abre como gaveta.
+- Para INSTALAR no celular, o app precisa estar num endereço https (internet).
+  Abrindo o arquivo direto do computador ele funciona, mas não instala.
+  Depois de publicado: abra o endereço no Chrome do celular > menu ⋮ >
+  "Instalar app" (no iPhone: Safari > Compartilhar > "Adicionar à Tela de Início").
+- Os talhões do celular e os do computador são separados: use Exportar backup /
+  Importar para passar de um para o outro.
+
+COMO ABRIR
+- Dê dois cliques em "Abrir Monitoramento.bat". Se o computador não tiver o
+  Edge, o app abre no navegador padrão (Chrome também funciona).
+- Não precisa instalar nada nem ter o R.
+- Precisa de internet: as imagens de satélite, o clima e o fundo do mapa vêm
+  da internet a cada análise.
+- Dica: botão direito no .bat > "Mostrar mais opções" > "Enviar para" >
+  "Área de trabalho (criar atalho)".
+
+LEVAR PARA OUTRO COMPUTADOR
+1. Copie a pasta AppNVDI INTEIRA (com a pasta lib) para o outro computador
+   (pendrive, OneDrive, e-mail em .zip...).
+2. Os talhões e o diário de manejo ficam guardados no navegador de cada
+   computador. Para levá-los:
+   a) neste computador, abra o app e clique em "Exportar backup";
+   b) guarde o arquivo talhoes_backup_AAAA-MM-DD.json (ex.: dentro da pasta AppNVDI);
+   c) no outro computador, abra o app, clique em "Importar" e escolha esse arquivo.
+   Ao importar de novo um backup, os talhões que já existem não se duplicam:
+   só os registros novos do diário são acrescentados.
+- Faça "Exportar backup" de vez em quando, mesmo sem trocar de computador.
+
+COMO USAR
+1. Desenhe o talhão no mapa (ícones de polígono ou retângulo, à esquerda do mapa),
+   dê um nome e clique em "Salvar".
+2. Escolha o período e a nuvem máxima aceita dentro do talhão.
+3. Clique em "Buscar imagens e gerar relatório".
+4. No mapa: botões Cor real / NDVI / NDMI / NDRE / Zonas / Relevo e a lista de
+   datas (inclui "Média do período").
+5. "Baixar laudo em PDF" salva o laudo na pasta Downloads.
+
+ANALISAR VÁRIOS TALHÕES DE UMA VEZ
+- Marque a caixinha ☐ ao lado de cada talhão na lista (ou Ctrl+clique no
+  talhão, na lista ou no mapa). O botão "Todos" marca todos os da lista.
+- Em "Área selecionada", escolha:
+  * Separado (comparar): cada talhão é analisado sozinho, um depois do outro.
+    Aparece o quadro "Comparativo dos talhões" (NDVI, NDMI, NDRE, variação,
+    chuva). Clique numa linha para abrir o relatório completo daquele talhão;
+    clique no título da coluna para ordenar. Dá para exportar o comparativo em
+    planilha (CSV) e baixar o laudo PDF de todos de uma vez.
+  * Juntos (uma área): os talhões viram uma área só e geram um único
+    relatório (médias, zonas e mapas do conjunto).
+
+ATALHOS E NAVEGAÇÃO
+- Ctrl+Enter ........ buscar imagens e gerar relatório
+- ← / → ............. imagem anterior / próxima no mapa
+- Espaço ............ animar a evolução mês a mês (▶ ao lado da data)
+- F ................. mapa em tela cheia (Esc para sair)
+- Botão ☰ no topo ... esconde/mostra o painel lateral
+- Clique no título de cada quadro da lateral para recolher/abrir.
+- Clique numa miniatura dos resultados para vê-la no mapa.
+
+RECURSOS
+- NDVI (vegetação), NDMI (umidade) e NDRE (clorofila/nitrogênio) mês a mês,
+  com a imagem mais limpa de cada mês DENTRO do talhão.
+- Mapa médio do período: média de cada pixel em todos os meses.
+- Zonas de manejo (2 a 5 zonas) feitas com TODOS os dados juntos: NDVI, NDMI e
+  NDRE de todas as imagens limpas do período (cada pixel comparado com a média do
+  talhão em cada data) + altitude (opcional). Agrupamento k-means multivariado,
+  manchas pequenas incorporadas à zona vizinha e indicador de qualidade da divisão.
+  Exporta em GeoJSON ou Shapefile (.zip, WGS84) com o campo TAXA para a dose.
+- Diário de manejo por talhão: entrada/saída do gado (nº de animais), adubação,
+  roçada, plantio, colheita, irrigação, defensivo, outros. Os eventos aparecem
+  no gráfico e no laudo.
+- Clima: chuva mensal e temperatura média (Open-Meteo/ERA5) no gráfico.
+- Ponto de colheita da silagem (milho): pico do NDVI (~florescimento) + graus-dia
+  para estimar a janela de 1/3 a 2/3 da linha do leite. É uma estimativa:
+  confirme no campo pela linha do leite e pela matéria seca.
+- Relevo (Copernicus DEM, ~30 m): altitude, desnível e declividade.
+- Laudo em PDF com todas as seções.
+
+FONTES DOS DADOS
+Sentinel-2 L2A (ESA/Copernicus) via Microsoft Planetary Computer; clima
+Open-Meteo (reanálise ERA5); relevo Copernicus DEM GLO-30. Bibliotecas:
+Leaflet 1.9.4, Leaflet.draw 1.0.4 e jsPDF 2.5.1 (licenças na pasta lib).

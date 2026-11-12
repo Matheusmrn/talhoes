@@ -1,0 +1,13 @@
+# Publica só o aplicativo. Nada de backups, versões antigas ou configurações locais.
+*
+!.gitignore
+!index.html
+!manifest.webmanifest
+!sw.js
+!LEIA-ME.txt
+!js/
+!js/**
+!lib/
+!lib/**
+!icons/
+!icons/**

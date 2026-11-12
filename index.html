@@ -1,0 +1,2971 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Monitoramento de Talhões</title>
+<meta name="theme-color" content="#11482a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Talhões">
+<script>try{var _t=localStorage.getItem("ui.tema")||"auto";document.documentElement.dataset.tema=(_t==="escuro"||(_t==="auto"&&matchMedia("(prefers-color-scheme: dark)").matches))?"escuro":"claro";}catch(e){}</script>
+<!-- Bibliotecas locais (pasta lib): o app não depende de CDN para abrir -->
+<link rel="stylesheet" href="lib/leaflet/leaflet.css">
+<link rel="stylesheet" href="lib/leaflet-draw/leaflet.draw.css">
+<script src="lib/leaflet/leaflet.js"></script>
+<script src="lib/leaflet-draw/leaflet.draw.js"></script>
+<script src="lib/jspdf/jspdf.umd.min.js"></script>
+<style>
+:root{
+  --bg:#eef2ec; --bg2:#e4ebe2; --panel:#ffffff; --ink:#17251a; --muted:#5d6c60; --line:#e1e7de; --line2:#eef2ec;
+  --green:#1f7a3a; --green-d:#11482a; --green-dd:#0b3320; --green-l:#e7f3ea; --lime:#8bc34a;
+  --blue:#1f4fa8; --red:#b3261e; --amber:#b07800;
+  --r:14px; --r-sm:9px;
+  --sh:0 1px 2px rgba(16,40,22,.06),0 4px 14px rgba(16,40,22,.06);
+  --sh-h:0 2px 4px rgba(16,40,22,.08),0 10px 28px rgba(16,40,22,.12);
+  --t:.18s cubic-bezier(.2,.7,.3,1);
+  --hdr:64px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+html,body{margin:0;min-height:100%}
+body{background:radial-gradient(1200px 500px at 85% -10%,#dfeedd 0,transparent 60%),var(--bg);color:var(--ink);font:14px/1.5 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+::selection{background:#cde8d4}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#c9d4c6;border-radius:10px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:#a9b9a5;background-clip:padding-box;border:2px solid transparent}
+
+/* ---------- Cabeçalho ---------- */
+header{position:sticky;top:0;z-index:1200;height:var(--hdr);display:flex;align-items:center;gap:14px;padding:0 18px;
+  background:linear-gradient(110deg,var(--green-dd) 0%,var(--green-d) 45%,#1d6b3a 100%);color:#fff;box-shadow:0 2px 12px rgba(8,40,20,.25)}
+header .logo{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18)}
+header .logo svg{width:24px;height:24px}
+header .tit{min-width:0}
+header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header h1 em{font-style:normal;font-weight:500;opacity:.75}
+header .sub{opacity:.72;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .acoes{margin-left:auto;display:flex;align-items:center;gap:8px}
+header .hbtn{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;padding:7px 11px;border-radius:10px;display:inline-flex;align-items:center;gap:6px;font-size:13px}
+header .hbtn:hover{background:rgba(255,255,255,.2)}
+header .hbtn svg{width:16px;height:16px}
+header .autor{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13.5px;white-space:nowrap;padding:4px 12px 4px 4px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16)}
+header .autor i{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:12px;background:var(--lime);color:var(--green-dd);font-weight:800}
+
+/* ---------- Layout ---------- */
+.wrap{display:grid;grid-template-columns:360px minmax(0,1fr);gap:16px;padding:16px;align-items:start;transition:grid-template-columns var(--t)}
+body.semlateral .wrap{grid-template-columns:0 minmax(0,1fr);gap:0}
+body.semlateral aside{opacity:0;pointer-events:none;transform:translateX(-20px)}
+aside{position:sticky;top:calc(var(--hdr) + 16px);max-height:calc(100vh - var(--hdr) - 32px);overflow:auto;display:flex;flex-direction:column;gap:12px;padding:2px 4px 8px 2px;margin:-2px -4px 0 -2px;transition:opacity var(--t),transform var(--t)}
+main{display:flex;flex-direction:column;gap:16px;min-width:0}
+
+/* ---------- Cards ---------- */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:16px;box-shadow:var(--sh);transition:box-shadow var(--t)}
+.card h2{display:flex;align-items:center;gap:9px;font-size:12.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin:0 0 12px;font-weight:700}
+.card h2 .ic{flex:none;width:26px;height:26px;border-radius:8px;display:grid;place-items:center;background:var(--green-l);color:var(--green)}
+.card h2 .ic svg{width:15px;height:15px}
+.card h2 .badge{margin-left:auto;text-transform:none;letter-spacing:0;font-weight:600;font-size:11.5px;background:var(--line2);color:var(--muted);padding:2px 8px;border-radius:999px}
+.fold>h2{cursor:pointer;user-select:none;margin-bottom:12px}
+.fold>h2::after{content:"";width:8px;height:8px;border-right:2px solid #9aa89c;border-bottom:2px solid #9aa89c;transform:rotate(45deg);margin:0 4px 3px 8px;transition:transform var(--t)}
+.fold.fechado>h2{margin-bottom:0}
+.fold.fechado>h2::after{transform:rotate(-45deg);margin-bottom:0}
+.fold.fechado>:not(h2){display:none!important}
+.fold>h2:not(:has(.badge))::after{margin-left:auto}
+
+/* ---------- Formulários ---------- */
+label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin:10px 0 4px}
+input[type=text],input[type=search],input[type=date],input[type=number],select,textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-sm);font:inherit;background:#fbfcfa;color:var(--ink);transition:border-color var(--t),box-shadow var(--t),background var(--t)}
+input:hover,select:hover,textarea:hover{border-color:#cbd6c8}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green);background:#fff;box-shadow:0 0 0 3px rgba(31,122,58,.15)}
+textarea{resize:vertical;min-height:56px}
+input[type=range]{accent-color:var(--green);width:110px}
+input[type=checkbox]{accent-color:var(--green);width:16px;height:16px}
+.row{display:flex;gap:8px}
+.row>*{flex:1;min-width:0}
+
+/* ---------- Botões ---------- */
+button{font:inherit;cursor:pointer;border-radius:var(--r-sm);border:1px solid var(--line);background:#fff;color:var(--ink);padding:8px 12px;transition:background var(--t),border-color var(--t),transform var(--t),box-shadow var(--t),color var(--t)}
+button:hover{background:#f3f7f1;border-color:#cfd9cc}
+button:active{transform:translateY(1px) scale(.99)}
+button:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(31,122,58,.25)}
+button.primary{background:linear-gradient(180deg,#26914a,var(--green));border-color:var(--green);color:#fff;font-weight:650;padding:11px;box-shadow:0 2px 8px rgba(31,122,58,.28)}
+button.primary:hover{background:linear-gradient(180deg,#22843f,var(--green-d));box-shadow:0 4px 14px rgba(31,122,58,.35)}
+button.blue{background:linear-gradient(180deg,#2a62c4,var(--blue));border-color:var(--blue);color:#fff;font-weight:650;padding:11px;box-shadow:0 2px 8px rgba(31,79,168,.28)}
+button.blue:hover{filter:brightness(1.06)}
+button.amber{background:linear-gradient(180deg,#c48a0c,#9a6a00);border-color:#9a6a00;color:#fff;font-weight:650;padding:10px 14px;box-shadow:0 2px 8px rgba(154,106,0,.28)}
+button.amber:hover{filter:brightness(1.06)}
+button:disabled{opacity:.5;cursor:not-allowed;box-shadow:none;transform:none}
+button.carregando{position:relative;color:transparent!important;opacity:.9}
+button.carregando::after{content:"";position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:gira .7s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}
+.full{width:100%}
+.ibtn{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.ibtn svg{width:16px;height:16px;flex:none}
+
+/* ---------- Talhões ---------- */
+.busca{position:relative;margin-bottom:8px}
+.busca input{padding-left:32px}
+.busca svg{position:absolute;left:10px;top:50%;width:15px;height:15px;transform:translateY(-50%);color:#91a093;pointer-events:none}
+.lista{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto;padding:2px}
+.talhao{position:relative;display:flex;align-items:center;gap:8px;padding:9px 9px 9px 12px;border:1px solid var(--line);border-radius:11px;cursor:pointer;background:#fff;transition:all var(--t)}
+.talhao::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:3px;background:transparent;transition:background var(--t)}
+.talhao:hover{border-color:#c6d6c4;background:#f8fbf7;transform:translateX(2px)}
+.talhao.ativo{border-color:#9fcfac;background:var(--green-l)}
+.talhao.ativo::before{background:var(--green)}
+.talhao .info{flex:1;min-width:0}
+.talhao .nome{font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.talhao .meta{font-size:11.5px;color:var(--muted)}
+.talhao button{padding:3px 7px;font-size:12px;opacity:0;border-color:transparent;background:transparent}
+.talhao:hover button,.talhao.ativo button{opacity:1}
+.talhao button:hover{background:#fff;border-color:var(--line)}
+.talhao button[data-a=del]:hover{color:var(--red);border-color:#f0c4c0;background:#fdf2f1}
+.vazio{color:var(--muted);font-size:13px;padding:14px 8px;text-align:center;border:1.5px dashed var(--line);border-radius:11px;background:#fafcf9}
+.hint{font-size:12.5px;color:var(--muted);margin:6px 0 0}
+.atual{background:linear-gradient(135deg,var(--green-l),#f2f9f3);border:1px solid #cfe6d6;border-radius:11px;padding:10px 12px;font-size:13px;margin-top:4px}
+.atual b{font-size:14px}
+
+/* ---------- Seleção múltipla ---------- */
+.selbar{display:flex;align-items:center;gap:6px;margin:0 0 8px;font-size:12px;color:var(--muted)}
+.selbar span{flex:1}
+.selbar button{padding:3px 10px;font-size:12px;border-radius:999px}
+.talhao .selchk{flex:none;margin:0 2px 0 0;cursor:pointer}
+.selchips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.selchips span{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:3px 6px 3px 10px;border-radius:999px;background:#fff;border:1px solid #cfe6d6;cursor:pointer;transition:all var(--t)}
+.selchips span:hover{border-color:#f0c4c0;background:#fdf2f1}
+.selchips i{font-style:normal;font-size:10px;opacity:.55}
+.seg.segfull{display:flex;width:100%}
+.seg.segfull button{flex:1}
+.lotetab td,.lotetab th{white-space:nowrap}
+.lotetab th.ord{cursor:pointer;user-select:none}
+.lotetab th.ord:hover{color:var(--ink)}
+.lotetab th.asc::after{content:" ▲";font-size:9px}
+.lotetab th.desc::after{content:" ▼";font-size:9px}
+.lotetab tr.ok{cursor:pointer}
+.lotetab tr.ativo td{background:var(--green-l)!important}
+.lotetab tr.ativo td:first-child{box-shadow:inset 3px 0 0 var(--green)}
+.lotetab tr.fila td,.lotetab tr.proc td{color:var(--muted)}
+.vbar{display:inline-flex;align-items:center;gap:6px;justify-content:flex-end;min-width:100px}
+.vbar b{display:block;width:64px;height:8px;border-radius:4px;background:#edf1eb;overflow:hidden;flex:none}
+.vbar i{display:block;height:100%;border-radius:4px;transition:width .4s}
+.vbar span{min-width:34px;text-align:right}
+.stt{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;margin-right:8px;font-size:10px;font-weight:800;vertical-align:-4px;color:#fff}
+.stt.ok{background:var(--green)}
+.stt.erro{background:var(--red)}
+.stt.fila{background:#fff;border:2px solid #cfd8cc}
+.stt.proc{border:2.5px solid #cfe6d6;border-top-color:var(--green);animation:gira .7s linear infinite}
+
+/* ---------- Período ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chips button{padding:4px 11px;font-size:12px;border-radius:999px;background:#f5f8f3}
+.chips button.on{background:var(--green);border-color:var(--green);color:#fff}
+.progress{height:8px;background:#e6ece3;border-radius:6px;overflow:hidden;margin-top:12px;display:none}
+.progress>div{height:100%;width:0;border-radius:6px;background:linear-gradient(90deg,var(--green),var(--lime),var(--green));background-size:200% 100%;animation:fluxo 1.4s linear infinite;transition:width .35s}
+@keyframes fluxo{to{background-position:-200% 0}}
+#status{font-size:12.5px;margin-top:8px;color:var(--muted);min-height:18px}
+#status.erro{color:var(--red)}
+
+/* ---------- Diário ---------- */
+.diario{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto;margin-top:12px;padding-left:12px;position:relative}
+.diario::before{content:"";position:absolute;left:22px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.diario .vazio{margin-left:-12px}
+.evento{position:relative;display:flex;gap:9px;align-items:flex-start;padding:7px 8px;border:1px solid transparent;border-radius:10px;font-size:13px;transition:background var(--t),border-color var(--t)}
+.evento:hover{background:#f7faf6;border-color:var(--line)}
+.evento .sig{position:relative;z-index:1;flex:none;width:22px;height:22px;border-radius:50%;color:#fff;font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 3px #fff}
+.evento .tx{flex:1;min-width:0}
+.evento .tx b{display:block;font-weight:600}
+.evento .tx span{color:var(--muted);font-size:12px;word-wrap:break-word}
+.evento button{padding:2px 7px;font-size:12px;opacity:0;background:transparent;border-color:transparent}
+.evento:hover button{opacity:1}
+.evento button:hover{color:var(--red);background:#fdf2f1;border-color:#f0c4c0}
+
+/* ---------- Mapa ---------- */
+.mapcard{padding:12px}
+#mapa{height:calc(100vh - var(--hdr) - 150px);min-height:420px;max-height:760px;border-radius:11px;border:1px solid var(--line);background:#dfe6dc}
+.mapcard.cheio{position:fixed;inset:calc(var(--hdr) + 8px) 8px 8px 8px;z-index:1100;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.mapcard.cheio #mapa{flex:1;height:auto;max-height:none}
+.mapbar{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;margin-bottom:10px}
+.seg{display:inline-flex;flex-wrap:wrap;gap:2px;padding:3px;border-radius:11px;background:#eef2ec;border:1px solid var(--line)}
+.seg button{border:0;border-radius:8px;padding:6px 11px;font-size:13px;background:transparent;color:var(--muted);font-weight:550}
+.seg button:hover{background:#fff;color:var(--ink)}
+.seg button.on{background:#fff;color:var(--green-d);box-shadow:0 1px 3px rgba(0,0,0,.12);font-weight:650}
+.seg button[data-c=ndvi].on{color:#155a2a}.seg button[data-c=ndmi].on{color:var(--blue)}.seg button[data-c=ndre].on{color:#7b3294}.seg button[data-c=relevo].on{color:#8c510a}
+.mesnav{display:inline-flex;align-items:center;gap:4px}
+.mesnav select{width:auto;max-width:200px;padding:6px 8px}
+.mapbar .op input[type=range]{width:80px}
+.mesnav button{padding:6px 9px;line-height:1}
+.mesnav button svg{width:14px;height:14px;display:block}
+#mesPlay.on{background:var(--green);border-color:var(--green);color:#fff}
+.mapbar .op{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-left:auto}
+.leaflet-image-layer{image-rendering:pixelated}
+.leaflet-image-layer.suave{image-rendering:auto}
+.leaflet-container{font:inherit}
+.leaflet-bar,.leaflet-control-layers{border:0!important;border-radius:10px!important;box-shadow:0 2px 10px rgba(0,0,0,.2)!important;overflow:hidden}
+.leaflet-bar a{border-bottom-color:#eef1ec!important}
+.leaflet-tooltip{border-radius:8px;border:0;box-shadow:0 2px 10px rgba(0,0,0,.2);font-weight:600}
+.legenda{display:flex;align-items:center;gap:8px;margin:6px 0 12px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.legenda canvas{flex:1;height:12px;border-radius:6px;max-width:420px;min-width:120px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+#legMapa{margin:10px 2px 0}
+
+/* ---------- Boas-vindas ---------- */
+.boasvindas{text-align:center;padding:28px 20px}
+.boasvindas h3{margin:0 0 4px;font-size:18px}
+.boasvindas p{margin:0 auto;color:var(--muted);max-width:560px}
+.passos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:20px;text-align:left}
+.passo{border:1px solid var(--line);border-radius:12px;padding:14px;background:linear-gradient(180deg,#fff,#f8fbf7);transition:transform var(--t),box-shadow var(--t)}
+.passo:hover{transform:translateY(-3px);box-shadow:var(--sh-h)}
+.passo .n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--green);color:#fff;font-weight:700;font-size:13px;margin-bottom:8px}
+.passo b{display:block;margin-bottom:2px}
+.passo span{font-size:12.5px;color:var(--muted)}
+.passo.feito .n{background:var(--lime);color:var(--green-dd)}
+
+/* ---------- Resultados ---------- */
+.resultados{display:none;flex-direction:column;gap:16px}
+.subnav{position:sticky;top:calc(var(--hdr) + 8px);z-index:900;display:flex;gap:4px;overflow-x:auto;padding:5px;border-radius:12px;background:rgba(255,255,255,.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);box-shadow:var(--sh);scrollbar-width:none}
+.subnav::-webkit-scrollbar{display:none}
+.subnav a{flex:none;text-decoration:none;color:var(--muted);font-size:12.5px;font-weight:600;padding:6px 11px;border-radius:8px;transition:all var(--t)}
+.subnav a:hover{background:#f0f5ee;color:var(--ink)}
+.subnav a.on{background:var(--green);color:#fff}
+.resultados>.card,.resultados>.kpis{scroll-margin-top:calc(var(--hdr) + 70px)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.kpi{position:relative;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 14px 12px;box-shadow:var(--sh);transition:transform var(--t),box-shadow var(--t);animation:sobe .45s both}
+.kpi::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,var(--green),var(--lime))}
+.kpi:nth-child(4)::before{background:linear-gradient(90deg,#1f4fa8,#5aa0e6)}
+.kpi:nth-child(5)::before{background:linear-gradient(90deg,#7b3294,#c2a5cf)}
+.kpi:nth-child(6)::before{background:linear-gradient(90deg,#1f6fb0,#17becf)}
+.kpi:hover{transform:translateY(-3px);box-shadow:var(--sh-h)}
+.kpi:nth-child(2){animation-delay:.05s}.kpi:nth-child(3){animation-delay:.1s}.kpi:nth-child(4){animation-delay:.15s}.kpi:nth-child(5){animation-delay:.2s}.kpi:nth-child(6){animation-delay:.25s}
+.kpi .t{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.kpi .v{font-size:24px;font-weight:700;margin-top:4px;letter-spacing:-.3px;line-height:1.2;word-break:break-word}
+.kpi .d{font-size:12px;margin-top:4px}
+.kpi .d.up,.kpi .d.down{display:inline-block;padding:1px 8px;border-radius:999px;font-weight:600}
+.kpi .d.up{background:#e3f4e7}.kpi .d.down{background:#fdeceb}
+@keyframes sobe{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.resultados>.card{animation:sobe .45s both}
+.up{color:var(--green)} .down{color:var(--red)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.cel{position:relative;border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;background:#fff;transition:transform var(--t),box-shadow var(--t),border-color var(--t)}
+.grid .cel:hover,.medias .cel:hover{transform:translateY(-3px);box-shadow:var(--sh-h);border-color:#c6d6c4}
+.grid .cel::after{content:"Ver no mapa";position:absolute;right:8px;top:8px;font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:999px;background:var(--green);color:#fff;opacity:0;transform:translateY(-3px);transition:all var(--t)}
+.grid .cel:hover::after{opacity:1;transform:none}
+.cel.sel{border-color:var(--green);box-shadow:0 0 0 3px rgba(31,122,58,.2)}
+.cel canvas{max-width:100%;height:auto;border-radius:6px}
+.cel .dt{font-weight:650;font-size:13px;margin-bottom:4px}
+.cel .mv{font-size:12px;color:var(--muted);margin-top:2px}
+canvas.chart{width:100%;height:auto;display:block;border-radius:8px}
+.evleg{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);margin-top:10px}
+.evleg i{display:inline-block;width:16px;height:16px;border-radius:50%;color:#fff;font-style:normal;font-weight:700;font-size:10px;text-align:center;line-height:16px;margin-right:4px;vertical-align:-3px}
+.ignorados{font-size:12.5px;color:var(--muted);text-align:center}
+.medias{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.medias .cel{padding:12px}
+.medias canvas{max-width:100%;height:auto;display:block;margin:6px auto}
+.zonasm{display:flex;gap:6px;margin-top:6px;font-size:11.5px}
+.zonasm span{flex:1;border-radius:8px;padding:6px;text-align:center;border:1px solid var(--line);background:#f7f9f6;color:var(--muted)}
+.zonasm span:first-child{background:#fdf1ef;border-color:#f3d3cf}
+.zonasm span:last-child{background:#eef7f0;border-color:#cfe6d6}
+.zonasm b{display:block;font-size:15px;color:var(--ink)}
+.duas{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:20px;align-items:start}
+.duas canvas{max-width:100%;height:auto;display:block;margin:0 auto;border-radius:8px}
+.relstats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+.relstats div{background:#f7f9f6;border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:12px;color:var(--muted)}
+.relstats b{display:block;font-size:18px;color:var(--ink);margin-top:2px}
+table.tab{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;margin-top:10px;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+table.tab th{text-align:left;font-weight:650;color:var(--muted);font-size:11.5px;background:#f5f8f3;border-bottom:1px solid var(--line);padding:8px 7px}
+table.tab td{padding:7px;border-bottom:1px solid #eef1ec}
+table.tab tr:last-child td{border-bottom:0}
+table.tab tr:hover td{background:#f8fbf7}
+table.tab td.n,table.tab th.n{text-align:right}
+.sw{display:inline-block;width:12px;height:12px;border-radius:4px;vertical-align:-1px;margin-right:6px}
+.caixa{background:#fff8e6;border:1px solid #f0dca8;border-radius:10px;padding:11px 13px;font-size:13.5px;margin-top:10px}
+.caixa b{color:#7a5300}
+label.chk{display:flex;gap:7px;align-items:center;color:var(--ink);margin:0 0 9px;font-size:13px;cursor:pointer;font-weight:500}
+.qualidade{background:#eef5f0;border:1px solid #d3e6d9;border-radius:10px;padding:9px 11px;font-size:13px;margin-top:10px}
+.aviso{background:#fdecea;border:1px solid #f5c2bd;color:#7a1c14;border-radius:10px;padding:10px 12px;margin:14px 16px 0;font-size:13.5px}
+
+/* ---------- Toasts e extras ---------- */
+#toasts{position:fixed;right:18px;bottom:18px;z-index:3000;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none}
+.toast{pointer-events:auto;display:flex;align-items:flex-start;gap:10px;max-width:380px;padding:11px 14px;border-radius:12px;background:#17251a;color:#fff;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.25);animation:toastIn .25s both}
+.toast.erro{background:#8f1f18}
+.toast.sai{animation:toastOut .25s both}
+.toast .x{margin-left:6px;opacity:.6;cursor:pointer}
+@keyframes toastIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateX(20px)}}
+#topo{position:fixed;right:18px;bottom:18px;z-index:1000;width:42px;height:42px;border-radius:50%;padding:0;display:grid;place-items:center;background:var(--green);border-color:var(--green);color:#fff;box-shadow:0 6px 18px rgba(31,122,58,.35);opacity:0;transform:translateY(10px);pointer-events:none}
+#topo.vis{opacity:1;transform:none;pointer-events:auto}
+#topo svg{width:18px;height:18px}
+.kbd{display:inline-block;font-size:11px;padding:0 5px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;background:#fff;color:var(--muted)}
+
+/* ---------- Novos componentes ---------- */
+.card h2 .mini{margin-left:auto;padding:3px 8px;font-size:12px;text-transform:none;letter-spacing:0;font-weight:600;border-radius:8px}
+.card h2 .mini.txt{color:var(--green)}
+.salvo .mini{padding:2px 8px;font-size:12px;margin-left:6px}
+.pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:650;white-space:nowrap}
+.pill.verde{background:#e3f4e7;color:#176a32}.pill.amarelo{background:#fff4d6;color:#8a5d00}.pill.vermelho{background:#fdeceb;color:#a3241c}.pill.azul{background:#e5eefc;color:#1f4fa8}.pill.cinza{background:var(--line2);color:var(--muted)}
+.sub{font-size:11.5px;color:var(--muted);font-weight:400}
+.painelbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px}
+.painelbar .primary{padding:8px 14px}
+.alerta{padding:8px 12px;border-radius:10px;font-size:13px;margin-bottom:6px;cursor:pointer;border:1px solid}
+.alerta.vermelho{background:#fdf0ef;border-color:#f3cdc9}.alerta.amarelo{background:#fff8e6;border-color:#f0dca8}.alerta.verde{background:#eef7f0;border-color:#cfe6d6;cursor:default}
+.alerta a{color:var(--green-d);font-weight:650;cursor:pointer;text-decoration:underline}
+.painelTab tr[data-id]{cursor:pointer}
+.painelTab tr.ativo td{background:var(--green-l)}
+.painelTab tr.rodape td{font-size:11.5px;color:var(--muted);background:transparent!important}
+.salvo{background:#eef4fb;border:1px solid #cddcf0;color:#1f3f6e;border-radius:12px;padding:9px 14px;font-size:13px}
+.duas2{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;align-items:start}
+.pastogrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.big{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fafcf9}
+.big span{display:block;font-size:11.5px;color:var(--muted);font-weight:650;text-transform:uppercase;letter-spacing:.4px}
+.big>b{display:block;font-size:24px;margin:2px 0}
+.big>b small{font-size:12px;color:var(--muted);font-weight:500}
+.big em{display:block;font-style:normal;font-size:12px;color:var(--muted)}
+.calc{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin-top:10px;padding:10px 12px;border-radius:12px;background:var(--green-l);border:1px solid #cfe6d6;font-size:13px}
+.calc label{margin:0}.calc input{width:100px;display:block;margin-top:3px}
+.calc #psCalc{flex:1;min-width:200px}
+.mbar{display:flex;align-items:flex-end;gap:6px;height:86px;margin-top:12px;padding-top:4px}
+.mbar div{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;min-width:0}
+.mbar i{display:block;width:100%;max-width:38px;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,#7cc46a,#2e8b45)}
+.mbar span{font-size:10.5px;color:var(--muted)}
+.prev{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px}
+.prev .dia{text-align:center;border:1px solid var(--line);border-radius:10px;padding:6px 2px;background:#fafcf9}
+.prev .dia.chuva{background:#eaf2fc;border-color:#cddcf0}
+.prev span{display:block;font-size:11px;color:var(--muted);font-weight:650;text-transform:uppercase}
+.prev i{display:block;font-style:normal;font-size:20px;line-height:1.4}
+.prev b{display:block;font-size:13px}.prev b small{color:var(--muted);font-weight:500}
+.prev em{display:block;font-style:normal;font-size:10.5px;color:#1f6fb0}
+#cardManejo h4,.ajustes h4{margin:14px 0 4px;font-size:13.5px}
+.evanexos{margin-top:8px}.evanexos>*{font-size:13px}
+.btnfoto{margin:0;display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 12px;cursor:pointer;color:var(--ink);font-weight:500;background:#fff}
+.btnfoto:hover{background:#f3f7f1}
+#btnEvLocal.on{border-color:var(--green);background:var(--green-l)}
+.evprevia{display:flex;align-items:center;gap:8px;margin-top:8px;padding:6px;border:1px dashed var(--line);border-radius:10px;font-size:12px;color:var(--muted)}
+.evprevia img{width:56px;height:56px;object-fit:cover;border-radius:8px}
+.evprevia span{flex:1}.evprevia button{padding:2px 8px}
+.evextra{display:flex!important;gap:10px;margin-top:2px}
+.evextra a{color:var(--green);cursor:pointer;font-weight:600}
+.pinodiario span{display:grid;place-items:center;width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);color:#fff;font-weight:800;font-size:11px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.pinodiario span{line-height:1}
+.popfoto img{width:100%;border-radius:8px;margin-top:6px;cursor:zoom-in}
+.ctlgps a{display:grid!important;place-items:center;color:#333}
+.ctlgps a.on{background:#1e88e5!important;color:#fff!important}
+#mapa.mirando,#mapa.mirando .leaflet-interactive{cursor:crosshair!important}
+.mapcard{position:relative}
+.caminhada{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);z-index:1000;width:min(440px,calc(100% - 32px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:6px}
+.caminhada span{font-size:13px;color:var(--muted)}
+.caminhada .row button{padding:8px 6px;font-size:13px}
+.escolha{display:flex;flex-direction:column;gap:8px}
+.escolha button{padding:12px;font-size:14px}
+.modal{position:fixed;inset:0;z-index:2500;background:rgba(10,20,14,.55);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:16px;animation:toastIn .2s both}
+.modalbox{background:var(--panel);color:var(--ink);border-radius:16px;width:min(520px,100%);max-height:calc(100vh - 32px);overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.modal.largo .modalbox{width:min(980px,100%)}
+.modalhead{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+.modalhead b{flex:1;font-size:15px}
+.modalhead button{padding:4px 10px}
+#modalCorpo{padding:14px 16px 18px}
+.fotogrande{display:block;max-width:100%;max-height:75vh;margin:0 auto;border-radius:10px}
+.cmpbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.cmpbar label{margin:0;flex:1;min-width:120px}
+.cmpimg{display:block;max-width:100%;max-height:62vh;width:auto;height:auto;margin:0 auto;border-radius:8px;image-rendering:pixelated}
+.cortina .cmpimg.topo{max-height:none}
+.cmplado{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cmplado figure{margin:0;text-align:center}.cmplado figcaption{font-size:12.5px;font-weight:650;margin-top:4px}
+.cortina{position:relative;width:fit-content;max-width:100%;margin:0 auto;touch-action:none;cursor:ew-resize;user-select:none}
+.cortina .topo{position:absolute;left:0;top:0;width:100%;height:100%}
+.cortina .linha{position:absolute;top:0;bottom:0;width:3px;margin-left:-1.5px;background:#fff;box-shadow:0 0 6px rgba(0,0,0,.6);pointer-events:none}
+.cortina .linha span{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px;border-radius:50%;background:#fff;color:#333;display:grid;place-items:center;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+.cortina .rot{position:absolute;top:8px;font-size:12px;background:rgba(0,0,0,.6);color:#fff;padding:2px 8px;border-radius:999px;pointer-events:none}
+.cortina .rot.e{left:8px}.cortina .rot.d{right:8px}
+.navmob,.veu{display:none}
+header .hbtn[data-pref=escuro]{background:rgba(255,255,255,.25)}
+
+/* ---------- Tema escuro ---------- */
+:root[data-tema=escuro]{
+  --bg:#0d1510; --bg2:#121c16; --panel:#16201a; --ink:#e3ece5; --muted:#9db0a1; --line:#273529; --line2:#1d2920;
+  --green:#3fae5c; --green-d:#2f8f4a; --green-l:#1b2e21; --red:#ff7a6e;
+  --sh:0 1px 2px rgba(0,0,0,.4),0 4px 14px rgba(0,0,0,.3); --sh-h:0 2px 4px rgba(0,0,0,.5),0 10px 28px rgba(0,0,0,.45);
+  color-scheme:dark;
+}
+:root[data-tema=escuro] body{background:radial-gradient(1200px 500px at 85% -10%,#132a1b 0,transparent 60%),var(--bg)}
+:root[data-tema=escuro] header{background:linear-gradient(110deg,#06140c,#0b2616 45%,#123a22)}
+:root[data-tema=escuro] :is(button,.btnfoto,.cel,.talhao,input[type=text],input[type=search],input[type=date],input[type=number],select,textarea,.vbar b){background-color:#1a261e;color:var(--ink)}
+:root[data-tema=escuro] :is(button:hover,.btnfoto:hover,.talhao:hover){background-color:#213026}
+:root[data-tema=escuro] :is(button.primary,button.blue,button.amber){color:#fff}
+:root[data-tema=escuro] .seg,:root[data-tema=escuro] .chips button{background:#121c16}
+:root[data-tema=escuro] .seg button{background:transparent}
+:root[data-tema=escuro] .seg button.on{background:#25362a;color:#bff0c9}
+:root[data-tema=escuro] .chips button.on{background:var(--green);color:#fff}
+:root[data-tema=escuro] :is(.atual,.calc,.passo,.big,.prev .dia,.relstats div,.zonasm span,.vazio,.evprevia){background:#18241c;border-color:var(--line)}
+:root[data-tema=escuro] :is(.qualidade,.alerta.verde){background:#14271b;border-color:#24452f}
+:root[data-tema=escuro] :is(.caixa,.alerta.amarelo){background:#2a230f;border-color:#4d4016;color:#f1e3b4}
+:root[data-tema=escuro] .caixa b{color:#f4c95d}
+:root[data-tema=escuro] .alerta.vermelho{background:#2d1513;border-color:#5a2621}
+:root[data-tema=escuro] .salvo{background:#132033;border-color:#24395a;color:#bcd3f2}
+:root[data-tema=escuro] .prev .dia.chuva{background:#132033;border-color:#24395a}
+:root[data-tema=escuro] table.tab th{background:#18241c}
+:root[data-tema=escuro] table.tab td{border-bottom-color:#1f2b23}
+:root[data-tema=escuro] table.tab tr:hover td{background:#1b2a20}
+:root[data-tema=escuro] .subnav{background:rgba(22,32,26,.85)}
+:root[data-tema=escuro] .subnav a:hover{background:#213026}
+:root[data-tema=escuro] .pill.verde{background:#173a22;color:#8fe0a5}:root[data-tema=escuro] .pill.amarelo{background:#3a2f0d;color:#f4cf6a}:root[data-tema=escuro] .pill.vermelho{background:#3d1714;color:#ff9b91}:root[data-tema=escuro] .pill.azul{background:#16294a;color:#9cc0f5}
+:root[data-tema=escuro] .kpi .d.up{background:#173a22}:root[data-tema=escuro] .kpi .d.down{background:#3d1714}
+:root[data-tema=escuro] .evento .sig{box-shadow:0 0 0 3px var(--panel)}
+:root[data-tema=escuro] .evento:hover{background:#1a261e}
+:root[data-tema=escuro] .leaflet-popup-content-wrapper,:root[data-tema=escuro] .leaflet-popup-tip{background:#1a261e;color:var(--ink)}
+:root[data-tema=escuro] .kbd{background:#1a261e}
+:root[data-tema=escuro] .toast{background:#e3ece5;color:#10180f}
+:root[data-tema=escuro] .toast.erro{background:#ff8a7e;color:#2a0805}
+
+@media (max-width:1100px){.medias{grid-template-columns:1fr 1fr}.duas2{grid-template-columns:1fr}}
+@media (max-width:900px){
+  .medias{grid-template-columns:1fr}.duas{grid-template-columns:1fr}.wrap{grid-template-columns:1fr}
+  aside{position:static;max-height:none;overflow:visible}
+  #mapa{height:400px;min-height:0}.passos{grid-template-columns:1fr}
+  header .sub,header .autor span{display:none}.mapbar .op{margin-left:0}
+  body.semlateral .wrap{grid-template-columns:1fr}body.semlateral aside{display:none}
+}
+/* ---------- Celular: gaveta lateral + menu inferior ---------- */
+@media (max-width:900px){
+  :root{--hdr:56px}
+  header{padding:0 10px;gap:8px}
+  header .logo{width:34px;height:34px}
+  header .autor{padding:3px}
+  header .hbtn span{display:none}
+  body{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+  .wrap{grid-template-columns:1fr!important;gap:12px;padding:10px}
+  aside{position:fixed!important;z-index:1300;top:var(--hdr);left:0;bottom:0;width:min(90vw,380px);max-height:none!important;margin:0;padding:10px 10px calc(80px + env(safe-area-inset-bottom));overflow:auto!important;background:var(--bg);box-shadow:8px 0 30px rgba(0,0,0,.3);transform:translateX(-105%);transition:transform .25s ease;opacity:1!important;pointer-events:auto!important;display:flex!important}
+  body.gaveta aside{transform:none}
+  .veu{display:block;position:fixed;inset:var(--hdr) 0 0 0;z-index:1250;background:rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:opacity .25s}
+  body.gaveta .veu{opacity:1;pointer-events:auto}
+  #mapa{height:62vh;min-height:320px}
+  .mapcard{padding:8px}
+  .mapbar{gap:6px}
+  .seg{flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none}
+  .seg::-webkit-scrollbar{display:none}
+  .seg button{flex:none;padding:6px 9px}
+  .seg.segfull{overflow:visible}.seg.segfull button{flex:1}
+  .mesnav{flex:1}.mesnav select{flex:1;max-width:none}
+  .mapbar .op{width:100%;margin-left:0}.mapbar .op input[type=range]{flex:1}
+  .navmob{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:1400;background:var(--panel);border-top:1px solid var(--line);padding:4px 4px calc(4px + env(safe-area-inset-bottom));box-shadow:0 -4px 16px rgba(0,0,0,.08)}
+  .navmob button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:transparent!important;font-size:11px;font-weight:600;color:var(--muted);padding:6px 2px;border-radius:10px}
+  .navmob button svg{width:22px;height:22px}
+  .navmob button.on{color:var(--green)}
+  #toasts{bottom:calc(76px + env(safe-area-inset-bottom));left:12px;right:12px;align-items:stretch}
+  .toast{max-width:none}
+  #topo{bottom:calc(78px + env(safe-area-inset-bottom))}
+  .subnav{top:calc(var(--hdr) + 4px)}
+  .pastogrid{grid-template-columns:1fr}
+  .prev{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .cmplado{grid-template-columns:1fr}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpi .v{font-size:20px}
+  input,select,textarea{font-size:16px!important} /* evita zoom automático no iPhone */
+  .talhao button{opacity:1}
+  .modal{padding:0;align-items:flex-end}
+  .modalbox{border-radius:16px 16px 0 0;max-height:92vh}
+}
+@media (max-width:560px){header h1 em{display:none}.wrap{padding:8px}header h1{font-size:15px}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<header>
+  <button class="hbtn" id="btnLateral" title="Mostrar/ocultar painel lateral"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+  <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#b9f08a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg></div>
+  <div class="tit">
+    <h1>Monitoramento de Talhões <em>· Raio-X NDVI / NDMI / NDRE</em></h1>
+    <div class="sub">Sentinel-2 via Microsoft Planetary Computer · clima Open-Meteo · laudo em PDF</div>
+  </div>
+  <div class="acoes">
+    <button class="hbtn" id="btnInstalar" style="display:none" title="Instalar como aplicativo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="2"/><path d="M12 7v7m0 0-3-3m3 3 3-3"/></svg><span>Instalar</span></button>
+    <button class="hbtn" id="btnTema" title="Tema claro / escuro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+    <div class="autor"><i>MM</i><span>Matheus Marin</span></div>
+  </div>
+</header>
+<div class="aviso" id="avisoLib" style="display:none">Não encontrei as bibliotecas do app. Verifique se a pasta <b>lib</b> está junto do arquivo index.html (copie a pasta AppNVDI inteira).</div>
+
+<div class="wrap">
+<aside>
+  <div class="card fold" data-fold="talhoes">
+    <h2><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/><path d="M9 3v15M15 6v15"/></svg></span>Meus talhões<span class="badge" id="nTalhoes">0</span></h2>
+    <div class="busca" id="buscaBox" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input type="search" id="buscaTalhao" placeholder="Buscar talhão…"></div>
+    <div class="selbar" id="selBar" style="display:none">
+      <span id="selInfo">Marque ☐ para analisar vários</span>
+      <button id="btnSelTodos" title="Selecionar todos os talhões visíveis na lista">Todos</button>
+      <button id="btnSelLimpar" title="Limpar a seleção" style="display:none">Limpar</button>
+    </div>
+    <div id="lista" class="lista"></div>
+    <div class="row" style="margin-top:10px">
+      <button id="btnExport" class="ibtn" title="Salvar um arquivo com todos os talhões e o diário"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3"/></svg>Exportar backup</button>
+      <button id="btnImport" class="ibtn" title="Carregar backup ou GeoJSON"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3m0 0L8 7m4-4 4 4M4 17v3h16v-3"/></svg>Importar</button>
+    </div>
+    <input type="file" id="fileImport" accept=".json,.geojson" hidden>
+  </div>
+
+  <div class="card fold" data-fold="area">
+    <h2><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 8 9 3l11 5-3 12-12-2z"/><circle cx="9" cy="3" r="1.2"/><circle cx="4" cy="8" r="1.2"/></svg></span>Área selecionada</h2>
+    <div id="dicaDesenho">
+      <p class="hint">Use as ferramentas no canto esquerdo do mapa para desenhar um novo talhão (polígono ou retângulo), ou clique num talhão salvo.</p>
+      <button class="full ibtn" id="btnCaminhar" style="margin-top:10px" title="Grava o contorno andando pela divisa com o celular (GPS)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="2"/><path d="m9 20 3-6 3 3v4M7 12l3-4 4 1 3 3M12 14l-2-4"/></svg>Desenhar caminhando (GPS)</button>
+    </div>
+    <div id="painelAtual" style="display:none">
+      <div class="atual" id="txtAtual"></div>
+      <div id="painelMulti" style="display:none">
+        <label>Como analisar os talhões selecionados</label>
+        <div class="seg segfull" id="modoMulti">
+          <button data-m="lote">Separado (comparar)</button>
+          <button data-m="juntos">Juntos (uma área)</button>
+        </div>
+        <p class="hint" id="dicaMulti"></p>
+      </div>
+      <div id="painelSalvar">
+        <label for="nomeTalhao">Nome do talhão</label>
+        <div class="row">
+          <input type="text" id="nomeTalhao" placeholder="Ex.: Fazenda Boa Vista – Piquete 3" style="flex:3">
+          <button id="btnSalvar" style="flex:1">Salvar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card fold" data-fold="periodo">
+    <h2><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg></span>Período e processamento</h2>
+    <div class="chips" id="presets" style="margin-top:0">
+      <button data-m="3">3 meses</button><button data-m="6">6 meses</button><button data-m="12">1 ano</button><button data-m="24">2 anos</button>
+    </div>
+    <div class="row">
+      <div><label for="dIni">De</label><input type="date" id="dIni"></div>
+      <div><label for="dFim">Até</label><input type="date" id="dFim"></div>
+    </div>
+    <label for="maxNuvem">Nuvem máxima aceita dentro do talhão</label>
+    <select id="maxNuvem">
+      <option value="0.05">5%</option>
+      <option value="0.15" selected>15%</option>
+      <option value="0.3">30%</option>
+      <option value="0.5">50%</option>
+    </select>
+    <button class="primary full" id="btnProcessar" style="margin-top:14px" disabled title="Atalho: Ctrl+Enter">Buscar imagens e gerar relatório</button>
+    <div class="progress" id="prog"><div></div></div>
+    <div id="status"></div>
+    <button class="blue full" id="btnPdf" style="margin-top:10px;display:none">Baixar laudo em PDF</button>
+  </div>
+
+  <div class="card fold" id="cardDiario" data-fold="diario">
+    <h2><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg></span>Diário de manejo</h2>
+    <p class="hint" id="diarioDica">Salve ou selecione um talhão para registrar o manejo.</p>
+    <div id="diarioForm" style="display:none">
+      <div class="row">
+        <div><label for="evData">Data</label><input type="date" id="evData"></div>
+        <div><label for="evTipo">Tipo</label><select id="evTipo"></select></div>
+      </div>
+      <div id="evAnimaisBox"><label for="evAnimais">Nº de animais</label><input type="number" id="evAnimais" min="0" step="1" placeholder="Ex.: 45"></div>
+      <label for="evNota">Observação</label>
+      <textarea id="evNota" placeholder="Ex.: ureia 100 kg/ha · lote de lactação · altura de saída 15 cm"></textarea>
+      <div class="row evanexos">
+        <button id="btnEvLocal" class="ibtn" title="Marcar onde foi (GPS ou clique no mapa)">📍 <span id="evLocalTxt">Local</span></button>
+        <label class="btnfoto ibtn" title="Tirar ou escolher uma foto">📷 <span id="evFotoTxt">Foto</span><input type="file" id="evFoto" accept="image/*" capture="environment" hidden></label>
+      </div>
+      <div id="evPrevia" class="evprevia" style="display:none"></div>
+      <button class="primary full" id="btnEvento" style="margin-top:8px">Adicionar ao diário</button>
+      <div class="diario" id="listaDiario"></div>
+    </div>
+  </div>
+</aside>
+
+<main>
+  <div class="card mapcard" id="cardMapa">
+    <div class="mapbar">
+      <div class="seg" id="segCamada">
+        <button data-c="rgb">Cor real</button>
+        <button data-c="ndvi" class="on">NDVI</button>
+        <button data-c="ndmi">NDMI</button>
+        <button data-c="ndre">NDRE</button>
+        <button data-c="zonas">Zonas</button>
+        <button data-c="relevo">Relevo</button>
+        <button data-c="nada">Só contorno</button>
+      </div>
+      <div class="mesnav">
+        <button id="mesPrev" title="Imagem anterior (←)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <select id="selMes" disabled><option>— sem imagens —</option></select>
+        <button id="mesNext" title="Próxima imagem (→)" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+        <button id="mesPlay" title="Animar a evolução mês a mês (espaço)" disabled><svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg></button>
+      </div>
+      <div class="op">Opacidade <input type="range" id="opac" min="0.2" max="1" step="0.05" value="0.9">
+        <button id="btnComparar" title="Comparar duas datas (antes × depois)" disabled style="padding:6px 10px">⇆ Comparar</button>
+        <button id="btnCheio" title="Mapa em tela cheia (F)" style="padding:6px 9px"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="display:block"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+      </div>
+    </div>
+    <div id="mapa"></div>
+    <div class="legenda" id="legMapa" style="display:none"></div>
+  </div>
+
+  <div class="card fold" id="cardPainel" data-fold="painel" style="display:none">
+    <h2><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h8V3H3zM13 21h8V11h-8zM13 3v6h8V3zM3 21h8v-6H3z"/></svg></span>Painel da fazenda<span class="badge" id="painelResumo"></span></h2>
+    <div class="painelbar">
+      <button class="primary ibtn" id="btnAtualizarTodos" title="Busca a imagem limpa mais recente de cada talhão (só os números, é rápido)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg>Atualizar todos</button>
+      <button class="ibtn" id="btnAjustes" title="Ajustes de pastagem e alertas">⚙ Ajustes</button>
+      <span class="hint" id="painelInfo" style="margin:0"></span>
+    </div>
+    <div class="progress" id="progPainel"><div></div></div>
+    <div id="alertas"></div>
+    <div style="overflow-x:auto"><table class="tab painelTab" id="painelTab"></table></div>
+  </div>
+
+  <div class="card" id="cardLote" style="display:none">
+    <h2><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span>Comparativo dos talhões<span class="badge" id="loteResumo"></span></h2>
+    <p class="hint" style="margin:-4px 0 8px">Valores da última imagem limpa de cada talhão. Clique numa linha para abrir o relatório completo dele; clique no título de uma coluna para ordenar.</p>
+    <div style="overflow-x:auto"><table class="tab lotetab" id="loteTab"></table></div>
+    <div class="row" style="margin-top:12px;flex-wrap:wrap">
+      <button id="btnLoteCsv" class="ibtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v3h16v-3"/></svg>Exportar comparativo (planilha CSV)</button>
+      <button id="btnLotePdfs" class="ibtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5"/></svg>Baixar laudos de todos (PDF)</button>
+    </div>
+  </div>
+
+  <div class="card boasvindas" id="boasVindas">
+    <h3>Bem-vindo ao Raio-X do talhão</h3>
+    <p>Em três passos você tem NDVI, umidade, clorofila, zonas de manejo, clima e laudo em PDF.</p>
+    <div class="passos">
+      <div class="passo" id="passo1"><div class="n">1</div><b>Desenhe ou escolha</b><span>Use o polígono/retângulo no canto do mapa ou clique num talhão salvo.</span></div>
+      <div class="passo" id="passo2"><div class="n">2</div><b>Escolha o período</b><span>Use os atalhos (3 meses, 6 meses, 1 ano…) ou as datas.</span></div>
+      <div class="passo" id="passo3"><div class="n">3</div><b>Gere o relatório</b><span>Clique em “Buscar imagens” (<span class="kbd">Ctrl</span>+<span class="kbd">Enter</span>) e navegue pelos resultados.</span></div>
+    </div>
+  </div>
+
+  <div class="resultados" id="resultados">
+    <nav class="subnav" id="subnav">
+      <a href="#kpis">Resumo</a><a href="#cardPasto">Pastagem</a><a href="#cardPrevisao">Previsão</a><a href="#cardGrafico">Evolução</a><a href="#cardManejo">Manejo</a><a href="#cardMedia">Mapa médio</a><a href="#cardZonas">Zonas</a><a href="#cardSilagem">Silagem</a><a href="#cardNdvi">NDVI</a><a href="#cardNdmi">NDMI</a><a href="#cardNdre">NDRE</a><a href="#cardRgb">Cor real</a><a href="#cardRelevo">Relevo</a>
+    </nav>
+    <div class="salvo" id="avisoSalvo" style="display:none"></div>
+    <div class="kpis" id="kpis"></div>
+
+    <div class="duas2">
+      <div class="card" id="cardPasto">
+        <h2><span class="ic">🌾</span>Pastagem e água<button class="mini" id="btnAjustes2" title="Ajustes de pastagem">⚙</button></h2>
+        <div id="pastoRes"></div>
+      </div>
+      <div class="card" id="cardPrevisao">
+        <h2><span class="ic">🌦</span>Previsão 7 dias</h2>
+        <div id="previsaoRes"><p class="hint">Carregando previsão…</p></div>
+      </div>
+    </div>
+
+    <div class="card" id="cardGrafico">
+      <h2>Evolução do talhão, clima e manejo
+        <button class="mini txt" id="btnAnoPassado" title="Busca o NDVI do mesmo período do ano anterior">＋ Comparar com o ano passado</button></h2>
+      <canvas id="chart" class="chart"></canvas>
+      <div class="evleg" id="evLegenda"></div>
+      <div class="hint" id="climaNota"></div>
+      <div class="hint" id="apNota"></div>
+    </div>
+
+    <div class="card" id="cardManejo">
+      <h2><span class="ic">🧪</span>Efeito do manejo</h2>
+      <p class="hint" style="margin:-4px 0 10px">Usa todas as imagens limpas do período para medir quantos dias o pasto leva para se recuperar após a saída do gado e qual foi a resposta do NDVI/NDRE a cada adubação registrada no diário.</p>
+      <button class="amber" id="btnManejo">Analisar efeito do manejo</button>
+      <div id="manejoRes"></div>
+    </div>
+
+    <div class="card" id="cardMedia">
+      <h2>Mapa médio do período</h2>
+      <p class="hint" style="margin:-4px 0 10px">Média de cada pixel em todos os meses analisados. Mostra as zonas do talhão que ficam sempre acima ou abaixo da média. Cada mapa tem escala de cores própria.</p>
+      <div class="medias">
+        <div class="cel" id="mediaNdvi"></div>
+        <div class="cel" id="mediaNdmi"></div>
+        <div class="cel" id="mediaNdre"></div>
+      </div>
+    </div>
+
+    <div class="card" id="cardZonas">
+      <h2>Zonas de manejo</h2>
+      <div class="duas">
+        <div id="zonasImg"></div>
+        <div>
+          <div class="row" style="align-items:flex-end">
+            <div><label for="zonaN">Número de zonas</label>
+              <select id="zonaN"><option value="2">2 zonas</option><option value="3" selected>3 zonas</option><option value="4">4 zonas</option><option value="5">5 zonas</option></select></div>
+            <div><label class="chk"><input type="checkbox" id="zonaRelevo" checked> Considerar relevo</label></div>
+          </div>
+          <div class="qualidade" id="zonaQual"></div>
+          <table class="tab" id="zonasTab"></table>
+          <div class="row" style="margin-top:12px">
+            <button id="btnGeojson">Exportar GeoJSON</button>
+            <button id="btnShape">Exportar Shapefile (.zip)</button>
+          </div>
+          <p class="hint" id="zonaMetodo"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="cardSilagem">
+      <h2>Ponto de colheita da silagem (milho)</h2>
+      <p class="hint" style="margin:-4px 0 10px">Usa todas as imagens limpas do período (não só uma por mês) para achar o pico do NDVI, que coincide aproximadamente com o pendoamento/florescimento, e soma graus-dia a partir dele. Use um período que cubra o ciclo da lavoura.</p>
+      <button class="amber" id="btnSilagem">Analisar ponto de colheita</button>
+      <div id="silagemRes"></div>
+    </div>
+
+    <div class="card" id="cardNdvi">
+      <h2 style="color:#155a2a">Evolução da vegetação (NDVI)</h2>
+      <div class="legenda"><span id="lgNdviMin"></span><canvas id="lgNdvi" width="400" height="12"></canvas><span id="lgNdviMax"></span></div>
+      <div class="grid" id="gridNdvi"></div>
+    </div>
+    <div class="card" id="cardNdmi">
+      <h2 style="color:#1f4fa8">Evolução da umidade (NDMI)</h2>
+      <div class="legenda"><span id="lgNdmiMin"></span><canvas id="lgNdmi" width="400" height="12"></canvas><span id="lgNdmiMax"></span></div>
+      <div class="grid" id="gridNdmi"></div>
+    </div>
+    <div class="card" id="cardNdre">
+      <h2 style="color:#7b3294">Evolução da clorofila / nitrogênio (NDRE)</h2>
+      <div class="legenda"><span id="lgNdreMin"></span><canvas id="lgNdre" width="400" height="12"></canvas><span id="lgNdreMax"></span></div>
+      <div class="grid" id="gridNdre"></div>
+    </div>
+    <div class="card" id="cardRgb">
+      <h2 style="color:#5f4b1e">Evolução em cor real (satélite)</h2>
+      <div class="grid" id="gridRgb"></div>
+    </div>
+    <div class="card" id="cardRelevo">
+      <h2 style="color:#8c510a">Relevo do talhão (elevação)</h2>
+      <div class="duas">
+        <div id="relevoImg"></div>
+        <div>
+          <div class="legenda"><span id="lgRelMin"></span><canvas id="lgRel" width="400" height="12"></canvas><span id="lgRelMax"></span></div>
+          <div id="relevoStats"></div>
+          <p class="hint">Fonte: Copernicus DEM GLO-30 (resolução de ~30 m). Mostra a altitude da superfície, o que inclui árvores e construções. A sombra realça as ondulações do terreno.</p>
+        </div>
+      </div>
+    </div>
+    <div class="ignorados" id="ignorados"></div>
+  </div>
+</main>
+</div>
+
+<script>
+"use strict";
+if (!window.L || !window.L.Control || !window.L.Control.Draw || !window.jspdf){ document.getElementById("avisoLib").style.display = ""; }
+// ============================================================================
+// Configuração
+// ============================================================================
+const STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1/search";
+const DATA_URL = "https://planetarycomputer.microsoft.com/api/data/v1/item";
+const COLECAO = "sentinel-2-l2a";
+const CHAVE = "monitoramento-talhoes.v1";
+const SCL_RUIM = [1,3,8,9,10]; // saturado, sombra de nuvem, nuvem média, nuvem alta, cirros
+
+const PAL = {
+  ndvi:["#d73027","#f46d43","#fdae61","#fee08b","#ffffbf","#d9ef8b","#a6d96a","#66bd63","#1a9850","#006837"],
+  ndmi:["#8b4513","#cd853f","#deb887","#f5f5dc","#e0ffff","#87ceeb","#4682b4","#0000cd","#00008b"],
+  ndre:["#762a83","#9970ab","#c2a5cf","#e7d4e8","#f7f7f7","#d9f0d3","#a6dba0","#5aae61","#1b7837"],
+  relevo:["#1b7837","#5aae61","#a6dba0","#f1e9a6","#dfc27d","#bf812d","#8c510a","#5b3a1e"]
+};
+const INDICES = {
+  ndvi:{sigla:"NDVI", nome:"vegetação", b1:"B08", b2:"B04", cor:"#1a9850", corTx:"#155a2a"},
+  ndmi:{sigla:"NDMI", nome:"umidade", b1:"B08", b2:"B11", cor:"#1f4fa8", corTx:"#1f4fa8"},
+  ndre:{sigla:"NDRE", nome:"clorofila / N", b1:"B8A", b2:"B05", cor:"#8e44ad", corTx:"#7b3294"}
+};
+const IDX = Object.keys(INDICES);
+// Zonas: nomes e cores (da mais fraca para a mais forte)
+const ZONAS_NOMES = {2:["Baixa","Alta"], 3:["Baixa","Média","Alta"], 4:["Baixa","Média-baixa","Média-alta","Alta"], 5:["Muito baixa","Baixa","Média","Alta","Muito alta"]};
+const ZONAS_CORES = {2:["#d7301f","#1a9850"], 3:["#d7301f","#fdd835","#1a9850"], 4:["#d7301f","#fc8d59","#91cf60","#1a9850"], 5:["#a50026","#f46d43","#fee08b","#66bd63","#006837"]};
+const zonaNome = (zn, z) => ZONAS_NOMES[zn.n][z-1];
+const zonaCor = (zn, z) => ZONAS_CORES[zn.n][z-1];
+const AREA_MIN_HA = 0.3;   // manchas menores que isto (ou que 1% do talhão) são incorporadas à zona vizinha
+const TIPOS = {
+  entrada:{nome:"Entrada do gado", cor:"#8e5a2b", sig:"E"},
+  saida:{nome:"Saída do gado", cor:"#c08a4d", sig:"S"},
+  adubacao:{nome:"Adubação", cor:"#2a7fb8", sig:"A"},
+  rocada:{nome:"Roçada / corte", cor:"#6b8e23", sig:"R"},
+  plantio:{nome:"Plantio / semeadura", cor:"#1b7837", sig:"P"},
+  colheita:{nome:"Colheita / silagem", cor:"#d4a017", sig:"C"},
+  irrigacao:{nome:"Irrigação", cor:"#17becf", sig:"I"},
+  aplicacao:{nome:"Aplicação de defensivo", cor:"#9467bd", sig:"D"},
+  outro:{nome:"Outro", cor:"#7f7f7f", sig:"O"}
+};
+// Silagem: graus-dia (base 10 °C, teto 30 °C) do florescimento até ~1/3 e ~2/3 da linha do leite
+const GD_INI = 520, GD_FIM = 650;
+
+// ============================================================================
+// Utilidades
+// ============================================================================
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const fmtData = iso => { const [y,m,d] = iso.slice(0,10).split("-"); return `${d}/${m}/${y}`; };
+const isoLocal = d => new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const hojeISO = () => isoLocal(new Date());
+const somaDias = (iso, n) => { const d = new Date(iso+"T12:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); };
+const msData = iso => Date.parse(iso.slice(0,10)+"T12:00:00Z");
+const difDias = (a, b) => Math.round((msData(b)-msData(a))/864e5);
+const fmt = (v, n=2) => (v==null||isNaN(v)) ? "—" : v.toLocaleString("pt-BR",{minimumFractionDigits:n,maximumFractionDigits:n});
+const uid = () => Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const MESES = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
+const nomeMes = ym => { const [y,m] = ym.split("-"); return MESES[+m-1]+"/"+y.slice(2); };
+function esc(s){ return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function nomeArquivo(s){ return s.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^\w-]+/g,"_"); }
+
+function hexRgb(h){ return [1,3,5].map(i => parseInt(h.slice(i,i+2),16)); }
+function criaLUT(pal){
+  const cs = pal.map(hexRgb), lut = new Uint8ClampedArray(256*3);
+  for (let i=0;i<256;i++){
+    const t = i/255*(cs.length-1), k = Math.min(Math.floor(t), cs.length-2), f = t-k;
+    for (let c=0;c<3;c++) lut[i*3+c] = Math.round(cs[k][c]*(1-f)+cs[k+1][c]*f);
+  }
+  return lut;
+}
+const LUTS = {}; for (const k in PAL) LUTS[k] = criaLUT(PAL[k]);
+
+async function pool(itens, n, fn){
+  const res = new Array(itens.length); let i = 0;
+  await Promise.all(Array.from({length:Math.min(n,itens.length)}, async () => {
+    while (i < itens.length){ const k = i++; res[k] = await fn(itens[k], k); }
+  }));
+  return res;
+}
+
+async function pcPost(url, body, tipo="json", tentativas=4){
+  let ultimo;
+  for (let t=0; t<tentativas; t++){
+    try{
+      const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+      if (r.status === 429 || r.status >= 500){ ultimo = new Error(`servidor respondeu ${r.status}`); await sleep(1200*(t+1)); continue; }
+      if (!r.ok) throw new Error(`HTTP ${r.status}: ${(await r.text()).slice(0,200)}`);
+      return tipo === "json" ? await r.json() : await r.blob();
+    }catch(e){ ultimo = e; if (String(e.message).startsWith("HTTP 4")) throw e; await sleep(1200*(t+1)); }
+  }
+  throw ultimo;
+}
+
+function baixarBlob(blob, nome){
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nome;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+}
+
+// Geometria ------------------------------------------------------------------
+function bboxDe(geom){
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  const pts = (geom.type==="Polygon") ? geom.coordinates.flat() : geom.coordinates.flat(2);
+  for (const [x,y] of pts){ x0=Math.min(x0,x); y0=Math.min(y0,y); x1=Math.max(x1,x); y1=Math.max(y1,y); }
+  return [x0,y0,x1,y1];
+}
+function areaHa(geom){
+  const R = 6378137, rad = Math.PI/180;
+  const pols = geom.type==="Polygon" ? [geom.coordinates] : geom.coordinates;
+  let total = 0;
+  for (const pol of pols){
+    pol.forEach((anel, idx) => {
+      let a = 0;
+      for (let i=0;i<anel.length-1;i++){
+        const [x1,y1] = anel[i], [x2,y2] = anel[i+1];
+        a += (x2-x1)*rad * (2 + Math.sin(y1*rad) + Math.sin(y2*rad));
+      }
+      a = Math.abs(a*R*R/2);
+      total += idx===0 ? a : -a;
+    });
+  }
+  return total/10000;
+}
+
+// ============================================================================
+// Armazenamento dos talhões (inclui o diário de manejo)
+// ============================================================================
+function lerTalhoes(){
+  try{ return JSON.parse(localStorage.getItem(CHAVE)) || []; }catch(e){ return []; }
+}
+function gravarTalhoes(lista){
+  try{ localStorage.setItem(CHAVE, JSON.stringify(lista)); return true; }
+  catch(e){ setStatus("Não consegui salvar no navegador. Use 'Exportar backup' para não perder seus dados.", true); return false; }
+}
+let talhoes = lerTalhoes();
+talhoes.forEach(t => { if (!Array.isArray(t.diario)) t.diario = []; });
+
+// ============================================================================
+// Estado
+// ============================================================================
+const estado = { atual:null, resultado:null, camada:"ndvi", mesIdx:0, overlay:null };
+
+// ============================================================================
+// Mapa
+// ============================================================================
+const mapa = L.map("mapa", {zoomControl:true}).setView([-15, -52], 4);
+const baseSat = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  {maxZoom:19, attribution:"Imagens © Esri, Maxar, Earthstar Geographics"}).addTo(mapa);
+const baseOsm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19, attribution:"© OpenStreetMap"});
+L.control.layers({"Satélite (fundo)":baseSat, "Mapa de ruas":baseOsm}, null, {position:"topright"}).addTo(mapa);
+L.control.scale({imperial:false}).addTo(mapa);
+
+const desenhados = new L.FeatureGroup().addTo(mapa);
+const outrosTalhoes = L.layerGroup().addTo(mapa);
+
+Object.assign(L.drawLocal.draw.toolbar.buttons, {polygon:"Desenhar talhão (polígono)", rectangle:"Desenhar talhão (retângulo)"});
+Object.assign(L.drawLocal.draw.toolbar.actions, {title:"Cancelar desenho", text:"Cancelar"});
+Object.assign(L.drawLocal.draw.toolbar.finish, {title:"Concluir desenho", text:"Concluir"});
+Object.assign(L.drawLocal.draw.toolbar.undo, {title:"Apagar último ponto", text:"Apagar último ponto"});
+L.drawLocal.draw.handlers.polygon.tooltip = {start:"Clique para começar o contorno.", cont:"Clique para continuar o contorno.", end:"Clique no primeiro ponto para fechar."};
+L.drawLocal.draw.handlers.rectangle.tooltip.start = "Clique e arraste para desenhar.";
+L.drawLocal.draw.handlers.simpleshape.tooltip.end = "Solte o mouse para concluir.";
+Object.assign(L.drawLocal.edit.toolbar.buttons, {edit:"Editar contorno", editDisabled:"Nada para editar", remove:"Apagar desenho", removeDisabled:"Nada para apagar"});
+Object.assign(L.drawLocal.edit.toolbar.actions.save, {title:"Salvar alterações", text:"Salvar"});
+Object.assign(L.drawLocal.edit.toolbar.actions.cancel, {title:"Cancelar edição", text:"Cancelar"});
+Object.assign(L.drawLocal.edit.toolbar.actions.clearAll, {title:"Apagar tudo", text:"Apagar tudo"});
+
+const estiloContorno = {color:"#00ff3c", weight:3, fill:false, fillOpacity:0};
+mapa.addControl(new L.Control.Draw({
+  position:"topleft",
+  draw:{
+    polyline:false, circle:false, marker:false, circlemarker:false,
+    polygon:{allowIntersection:false, showArea:false, shapeOptions:estiloContorno},
+    rectangle:{showArea:false, shapeOptions:estiloContorno}
+  },
+  edit:{featureGroup:desenhados}
+}));
+
+mapa.on(L.Draw.Event.CREATED, e => {
+  desenhados.clearLayers();
+  desenhados.addLayer(e.layer);
+  limparResultado();
+  definirAtual({id:null, geom:e.layer.toGeoJSON().geometry});
+});
+mapa.on(L.Draw.Event.EDITED, () => {
+  const lyr = desenhados.getLayers()[0]; if (!lyr || !estado.atual) return;
+  const geom = lyr.toGeoJSON().geometry;
+  estado.atual.geom = geom;
+  if (estado.atual.id){
+    const t = talhoes.find(x => x.id === estado.atual.id);
+    if (t){ t.geom = geom; t.areaHa = areaHa(geom); gravarTalhoes(talhoes); }
+  }
+  limparResultado();
+  definirAtual(estado.atual);
+});
+mapa.on(L.Draw.Event.DELETED, () => {
+  if (!desenhados.getLayers().length){ estado.atual = null; limparResultado(); atualizarPainelAtual(); renderLista(); renderDiario(); }
+});
+
+// ============================================================================
+// Talhões: lista, salvar, abrir
+// ============================================================================
+function definirAtual(at){
+  estado.atual = at;
+  atualizarPainelAtual();
+  renderLista();
+  renderDiario();
+}
+
+function atualizarPainelAtual(){
+  const at = estado.atual;
+  $("btnProcessar").disabled = !at;
+  $("btnProcessar").textContent = !at || !at.multi ? "Buscar imagens e gerar relatório"
+    : at.lote ? `Analisar os ${at.multi.length} talhões (um por um)` : `Analisar os ${at.multi.length} talhões juntos`;
+  $("painelMulti").style.display = at && at.multi ? "" : "none";
+  if (!at){ $("painelAtual").style.display = "none"; $("dicaDesenho").style.display = ""; return; }
+  $("painelAtual").style.display = ""; $("dicaDesenho").style.display = "none";
+  const ha = areaHa(at.geom);
+  if (at.multi){
+    const ts = at.multi.map(id => talhoes.find(x => x.id === id)).filter(Boolean);
+    const [x0,y0,x1,y1] = bboxDe(at.geom), km = Math.max((x1-x0)*111*Math.cos((y0+y1)/2*Math.PI/180), (y1-y0)*111);
+    $("txtAtual").innerHTML = `<b>${ts.length} talhões selecionados</b> · ${fmt(ha,1)} ha no total
+      <div class="selchips">${ts.map(t => `<span data-id="${t.id}" title="Tirar da seleção">${esc(t.nome)} <i>✕</i></span>`).join("")}</div>`;
+    $("txtAtual").querySelectorAll(".selchips span").forEach(s => s.onclick = () => alternarSelecao(s.dataset.id));
+    $("modoMulti").querySelectorAll("button").forEach(b => b.classList.toggle("on", (b.dataset.m === "lote") === !!at.lote));
+    $("dicaMulti").innerHTML = at.lote
+      ? "Cada talhão é analisado separadamente, um depois do outro. No fim aparece um <b>comparativo</b> e você alterna entre os relatórios."
+      : "Os talhões viram <b>uma área só</b> (várias partes): um relatório com médias, zonas e mapas do conjunto." +
+        (km > 25 ? ` <span style="color:var(--red)">Atenção: as áreas estão espalhadas (~${fmt(km,0)} km); a análise conjunta fica pesada. Prefira “Separado”.</span>` : "");
+    $("painelSalvar").style.display = "none";
+    return;
+  }
+  if (at.id){
+    const t = talhoes.find(x => x.id === at.id);
+    $("txtAtual").innerHTML = `<b>${esc(t.nome)}</b><br>${fmt(ha,1)} ha` + (t.ultimo ? `<br><span style="color:var(--muted)">Último processamento: imagem de ${t.ultimo.data} · NDVI ${fmt(t.ultimo.ndvi)} · NDMI ${fmt(t.ultimo.ndmi)}${t.ultimo.ndre!=null ? " · NDRE "+fmt(t.ultimo.ndre) : ""}</span>` : "");
+    $("painelSalvar").style.display = "none";
+  } else {
+    $("txtAtual").innerHTML = `<b>Nova área (não salva)</b><br>${fmt(ha,1)} ha`;
+    $("painelSalvar").style.display = "";
+    $("nomeTalhao").value = "";
+  }
+}
+
+function renderLista(){
+  const el = $("lista"); el.innerHTML = "";
+  outrosTalhoes.clearLayers();
+  $("nTalhoes").textContent = talhoes.length;
+  $("buscaBox").style.display = talhoes.length > 4 ? "" : "none";
+  if (!talhoes.length){ el.innerHTML = '<div class="vazio">Nenhum talhão salvo ainda.<br>Desenhe um no mapa para começar.</div>'; return; }
+  const ordenados = [...talhoes].sort((a,b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  const busca = $("buscaTalhao").value.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+  const sel = idsSelecionados();
+  $("selBar").style.display = talhoes.length > 1 ? "" : "none";
+  $("selInfo").textContent = sel.length > 1 ? `${sel.length} selecionados` : "Marque ☐ para analisar vários";
+  $("btnSelLimpar").style.display = sel.length ? "" : "none";
+  // clique no mapa: normal abre; com Ctrl adiciona/tira da seleção
+  const noMapa = t => L.geoJSON(t.geom, {style:{color:"#ffd400", weight:2, dashArray:"4 4", fill:false}})
+    .bindTooltip(t.nome + (talhoes.length > 1 ? " · Ctrl+clique: selecionar vários" : ""), {sticky:true})
+    .on("click", e => (e.originalEvent && (e.originalEvent.ctrlKey || e.originalEvent.metaKey)) ? alternarSelecao(t.id) : abrirTalhao(t.id))
+    .addTo(outrosTalhoes);
+  for (const t of ordenados){
+    const ativo = sel.includes(t.id);
+    if (busca && !ativo && !t.nome.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").includes(busca)){ noMapa(t); continue; }
+    const div = document.createElement("div");
+    div.className = "talhao" + (ativo ? " ativo" : "");
+    const nEv = (t.diario||[]).length;
+    div.innerHTML = `<input type="checkbox" class="selchk" data-a="sel" title="Selecionar para analisar junto com outros" ${ativo ? "checked" : ""}>
+      <div class="info"><div class="nome">${esc(t.nome)}</div><div class="meta">${fmt(t.areaHa,1)} ha${t.ultimo ? " · NDVI " + fmt(t.ultimo.ndvi) + " em " + t.ultimo.data : ""}${nEv ? " · " + nEv + (nEv>1?" registros":" registro") : ""}</div></div>
+      <button data-a="ren" title="Renomear">✎</button><button data-a="del" title="Excluir">✕</button>`;
+    div.addEventListener("click", ev => {
+      const a = ev.target.dataset && ev.target.dataset.a;
+      if (a === "ren"){ ev.stopPropagation(); renomear(t.id); return; }
+      if (a === "del"){ ev.stopPropagation(); excluir(t.id); return; }
+      if (a === "sel" || ev.ctrlKey || ev.metaKey){ ev.stopPropagation(); alternarSelecao(t.id); return; }
+      abrirTalhao(t.id);
+    });
+    el.appendChild(div);
+    if (!ativo) noMapa(t);
+  }
+}
+
+// ---------------- Seleção de vários talhões ----------------
+function idsSelecionados(){ const a = estado.atual; return !a ? [] : a.multi ? a.multi.slice() : a.id ? [a.id] : []; }
+function alternarSelecao(id){
+  const ids = idsSelecionados(), k = ids.indexOf(id);
+  if (k >= 0) ids.splice(k, 1); else ids.push(id);
+  aplicarSelecao(ids);
+}
+function juntarGeom(geoms){
+  const partes = [];
+  for (const g of geoms){ if (g.type === "Polygon") partes.push(g.coordinates); else if (g.type === "MultiPolygon") partes.push(...g.coordinates); }
+  return partes.length === 1 ? {type:"Polygon", coordinates:partes[0]} : {type:"MultiPolygon", coordinates:partes};
+}
+function aplicarSelecao(ids){
+  ids = ids.filter(id => talhoes.some(t => t.id === id));
+  if (ids.length === 1){ abrirTalhao(ids[0]); return; }
+  desenhados.clearLayers();
+  if (!ids.length){ if (!estado.lote) limparResultado(); definirAtual(null); return; }
+  const ts = ids.map(id => talhoes.find(t => t.id === id));
+  const geom = juntarGeom(ts.map(t => t.geom));
+  L.geoJSON(geom, {style:estiloContorno}).eachLayer(l => desenhados.addLayer(l));
+  mapa.fitBounds(desenhados.getBounds(), {padding:[30,30]});
+  // resultado de um talhão avulso deixa de valer para a seleção (lote anterior continua visível)
+  if (estado.resultado && !estado.lote && !estado.resultado.multi) limparResultado();
+  definirAtual(montarMulti(ids));
+}
+function montarMulti(ids){
+  const ts = ids.map(id => talhoes.find(t => t.id === id));
+  const lote = estado.modoMulti !== "juntos";
+  return {id:null, multi:ids, geom:juntarGeom(ts.map(t => t.geom)), lote, nome: lote ? null : "Conjunto: " + ts.map(t => t.nome).join(" + ")};
+}
+
+function abrirTalhao(id){
+  const t = talhoes.find(x => x.id === id); if (!t) return;
+  desenhados.clearLayers();
+  L.geoJSON(t.geom, {style:estiloContorno}).eachLayer(l => desenhados.addLayer(l));
+  mapa.fitBounds(desenhados.getBounds(), {padding:[30,30]});
+  const kLote = estado.lote ? estado.lote.itens.findIndex(x => x.id === id && x.res) : -1;
+  if (kLote >= 0){ definirAtual({id, geom:t.geom}); mostrarLoteItem(kLote, false); return; }
+  if (!estado.resultado || estado.resultado.talhaoId !== id) limparResultado();
+  definirAtual({id, geom:t.geom});
+  if (!estado.resultado && window.carregarRelatorio) window.carregarRelatorio(id);
+}
+
+// ---------------- Análise em lote (cada talhão separado) ----------------
+async function processarLote(at, ini, fim, maxNuvem){
+  const ids = at.multi.slice();
+  $("btnProcessar").disabled = true; $("btnPdf").style.display = "none";
+  limparResultado();
+  estado.lote = {ini, fim, ativo:-1, ordem:null, itens: ids.map(id => ({id, nome:talhoes.find(t => t.id === id).nome, res:null, erro:null, status:"fila"}))};
+  renderLote();
+  let ok = 0;
+  try{
+    for (let k=0; k<ids.length; k++){
+      const it = estado.lote.itens[k], t = talhoes.find(x => x.id === it.id);
+      it.status = "proc"; renderLote();
+      try{
+        if (!t) throw new Error("talhão excluído");
+        const prog = f => setProg((k + Math.min(1, f || 0))/ids.length);
+        const msg = s => setStatus(`[${k+1}/${ids.length}] ${t.nome}: ${s}`);
+        it.res = await analisarArea({id:t.id, geom:t.geom}, ini, fim, maxNuvem, prog, msg);
+        t.ultimo = resumoUltimo(it.res); gravarTalhoes(talhoes);
+        it.status = "ok"; ok++;
+        if (estado.lote.ativo < 0) mostrarLoteItem(k, false);
+      }catch(e){ console.error(e); it.erro = msgErro(e); it.status = "erro"; }
+      renderLote();
+    }
+  }finally{
+    setProg(null); renderLista(); atualizarPainelAtual();
+    $("btnProcessar").disabled = !estado.atual;
+  }
+  const falhas = ids.length - ok;
+  setStatus(ok ? `Lote pronto: ${ok} de ${ids.length} talhões analisados.` + (falhas ? ` ${falhas} com erro (veja o comparativo).` : " Clique num talhão do comparativo para ver o relatório dele.")
+               : "Nenhum talhão do lote pôde ser analisado. Veja os erros no comparativo.", !ok);
+  if (ok) $("btnPdf").style.display = "";
+}
+
+function mostrarLoteItem(k, rolar=true){
+  const it = estado.lote && estado.lote.itens[k]; if (!it || !it.res) return;
+  estado.lote.ativo = k; estado.resultado = it.res;
+  mostrarResultado(true);
+  $("btnPdf").style.display = "";
+  const [x0,y0,x1,y1] = it.res.bbox;
+  if (!(estado.atual && estado.atual.multi)) mapa.fitBounds([[y0,x0],[y1,x1]], {padding:[30,30]});
+  renderLote();
+  if (rolar) $("cardLote").scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+function renderLote(){
+  const L0 = estado.lote, card = $("cardLote");
+  card.style.display = L0 ? "" : "none";
+  if (window.uiAtualizar) window.uiAtualizar();
+  if (!L0) return;
+  const linhas = L0.itens.map((it, k) => {
+    const r = it.res, u = r && r.meses[r.meses.length-1], p = r && r.meses.length > 1 ? r.meses[r.meses.length-2] : null;
+    return {k, it, r, u, nome:it.nome, area: r ? r.areaHa : (talhoes.find(t => t.id === it.id) || {}).areaHa,
+      ndvi: u && u.ndvi.media, ndmi: u && u.ndmi.media, ndre: u && u.ndre ? u.ndre.media : null,
+      dndvi: u && p ? u.ndvi.media - p.ndvi.media : null, chuva: r && r.clima ? r.clima.chuvaTotal : null,
+      meses: r ? r.meses.length : null, data: u ? u.iso : null};
+  });
+  if (L0.ordem){ const {c, dir} = L0.ordem; linhas.sort((a,b) => (a[c] == null) - (b[c] == null) || (typeof a[c] === "string" ? a[c].localeCompare(b[c], "pt-BR") : a[c] - b[c]) * dir); }
+  // barra relativa: o menor valor da coluna fica curto e o maior fica cheio
+  const fx = {}; ["ndvi","ndmi","ndre"].forEach(c => { const vs = linhas.map(l => l[c]).filter(v => v != null); fx[c] = vs.length ? [Math.min(...vs), Math.max(...vs)] : [0, 1]; });
+  const melhor = linhas.filter(l => l.ndvi != null).sort((a,b) => b.ndvi - a.ndvi)[0];
+  const barra = (v, c, cor) => {
+    if (v == null) return "—";
+    const [lo, hi] = fx[c], f = hi - lo > 1e-6 ? (v - lo)/(hi - lo) : 1;
+    return `<div class="vbar" title="${fx[c][0] !== fx[c][1] ? "Barra relativa: comparado aos outros talhões do lote" : ""}"><b><i style="width:${Math.round(12 + 88*f)}%;background:${cor}"></i></b><span>${fmt(v)}</span></div>`;
+  };
+  const th = (c, t, n) => `<th class="${n ? "n " : ""}ord${L0.ordem && L0.ordem.c === c ? (L0.ordem.dir > 0 ? " asc" : " desc") : ""}" data-c="${c}">${t}</th>`;
+  const feitos = L0.itens.filter(i => i.status === "ok" || i.status === "erro").length;
+  $("loteResumo").textContent = `${fmtData(L0.ini)} a ${fmtData(L0.fim)} · ${feitos} de ${L0.itens.length} analisados` + (melhor && feitos > 1 ? ` · maior NDVI: ${melhor.nome}` : "");
+  $("loteTab").innerHTML = `<tr>${th("nome","Talhão")}${th("area","Área",1)}${th("data","Última imagem",1)}${th("ndvi","NDVI",1)}${th("ndmi","NDMI",1)}${th("ndre","NDRE",1)}${th("dndvi","Δ NDVI",1)}${th("chuva","Chuva",1)}</tr>` +
+    linhas.map(l => {
+      const st = l.it.status === "proc" ? '<span class="stt proc"></span>' : l.it.status === "fila" ? '<span class="stt fila"></span>' : l.it.status === "erro" ? '<span class="stt erro">!</span>' : '<span class="stt ok">✓</span>';
+      if (!l.r) return `<tr class="${l.it.status}"><td>${st}${esc(l.nome)}</td><td class="n">${fmt(l.area,1)} ha</td><td colspan="6" class="n" style="color:${l.it.erro ? "var(--red)" : "var(--muted)"}">${l.it.erro ? esc(l.it.erro) : l.it.status === "proc" ? "analisando…" : "na fila"}</td></tr>`;
+      return `<tr class="ok${l.k === L0.ativo ? " ativo" : ""}" data-k="${l.k}" title="Ver o relatório deste talhão">
+        <td>${st}<b>${esc(l.nome)}</b></td><td class="n">${fmt(l.area,1)} ha</td><td class="n">${fmtData(l.data)}</td>
+        <td class="n">${barra(l.ndvi,"ndvi","#1a9850")}</td><td class="n">${barra(l.ndmi,"ndmi","#1f4fa8")}</td><td class="n">${barra(l.ndre,"ndre","#8e44ad")}</td>
+        <td class="n ${l.dndvi == null ? "" : l.dndvi >= 0 ? "up" : "down"}">${l.dndvi == null ? "—" : (l.dndvi >= 0 ? "▲ " : "▼ ") + fmt(Math.abs(l.dndvi))}</td>
+        <td class="n">${l.chuva == null ? "—" : fmt(l.chuva,0) + " mm"}</td></tr>`;
+    }).join("");
+  $("loteTab").querySelectorAll("tr[data-k]").forEach(tr => tr.onclick = () => mostrarLoteItem(+tr.dataset.k));
+  $("loteTab").querySelectorAll("th.ord").forEach(h => h.onclick = () => {
+    const c = h.dataset.c, o = L0.ordem;
+    L0.ordem = o && o.c === c ? {c, dir:-o.dir} : {c, dir: c === "nome" ? 1 : -1};
+    renderLote();
+  });
+  $("btnLoteCsv").disabled = $("btnLotePdfs").disabled = !linhas.some(l => l.r);
+}
+
+function exportarLoteCsv(){
+  const L0 = estado.lote; if (!L0) return;
+  const f = v => v == null ? "" : String(Math.round(v*1000)/1000).replace(".", ",");
+  const cab = ["Talhao","Area_ha","Ultima_imagem","NDVI","NDMI","NDRE","Delta_NDVI","Chuva_mm","Meses_analisados","Situacao"];
+  const ls = L0.itens.map(it => {
+    const r = it.res, u = r && r.meses[r.meses.length-1], p = r && r.meses.length > 1 ? r.meses[r.meses.length-2] : null;
+    return [it.nome, r ? f(r.areaHa) : "", u ? u.data : "", u ? f(u.ndvi.media) : "", u ? f(u.ndmi.media) : "", u && u.ndre ? f(u.ndre.media) : "",
+      u && p ? f(u.ndvi.media - p.ndvi.media) : "", r && r.clima ? f(r.clima.chuvaTotal) : "", r ? r.meses.length : "", it.erro || "ok"];
+  });
+  const csv = "﻿" + [cab, ...ls].map(l => l.map(c => /[;"\n]/.test(c) ? `"${String(c).replace(/"/g,'""')}"` : c).join(";")).join("\r\n");
+  baixarBlob(new Blob([csv], {type:"text/csv;charset=utf-8"}), `Comparativo_talhoes_${hojeISO()}.csv`);
+}
+async function baixarLaudosLote(){
+  const L0 = estado.lote; if (!L0) return;
+  const atual = estado.resultado, itens = L0.itens.filter(i => i.res);
+  try{
+    for (const it of itens){ estado.resultado = it.res; gerarPdf(); await sleep(700); }
+    setStatus(`${itens.length} laudo(s) em PDF salvos na pasta Downloads.`);
+  }catch(e){ console.error(e); setStatus("Erro ao gerar os PDFs: " + e.message, true); }
+  finally{ estado.resultado = atual; }
+}
+
+function salvarAtual(){
+  const at = estado.atual; if (!at || at.id) return;
+  const nome = $("nomeTalhao").value.trim();
+  if (!nome){ $("nomeTalhao").focus(); setStatus("Dê um nome ao talhão para salvar.", true); return; }
+  const t = {id:uid(), nome, geom:at.geom, areaHa:areaHa(at.geom), criadoEm:new Date().toISOString(), ultimo:null, diario:[]};
+  talhoes.push(t); gravarTalhoes(talhoes);
+  if (estado.resultado && !estado.resultado.talhaoId){
+    estado.resultado.talhaoId = t.id; estado.resultado.nome = nome;
+    t.ultimo = resumoUltimo(estado.resultado); gravarTalhoes(talhoes);
+    mostrarResultado(false);
+  }
+  setStatus(`Talhão "${nome}" salvo.`);
+  definirAtual({id:t.id, geom:t.geom});
+}
+
+function renomear(id){
+  const t = talhoes.find(x => x.id === id); if (!t) return;
+  const n = prompt("Novo nome do talhão:", t.nome);
+  if (n && n.trim()){ t.nome = n.trim(); gravarTalhoes(talhoes); if (estado.resultado && estado.resultado.talhaoId===id) estado.resultado.nome = t.nome; atualizarPainelAtual(); renderLista(); renderDiario(); }
+}
+function excluir(id){
+  const t = talhoes.find(x => x.id === id); if (!t) return;
+  const nEv = (t.diario||[]).length;
+  if (!confirm(`Excluir o talhão "${t.nome}"${nEv ? ` e os ${nEv} registros do diário` : ""}? Esta ação não pode ser desfeita (a menos que você tenha um backup).`)) return;
+  talhoes = talhoes.filter(x => x.id !== id); gravarTalhoes(talhoes);
+  if (window.aoExcluir) window.aoExcluir(t);
+  if (estado.atual && estado.atual.id === id){ estado.atual = null; desenhados.clearLayers(); limparResultado(); atualizarPainelAtual(); renderDiario(); }
+  else if (estado.atual && estado.atual.multi && estado.atual.multi.includes(id)){ aplicarSelecao(estado.atual.multi.filter(x => x !== id)); return; }
+  renderLista();
+}
+
+// ============================================================================
+// Diário de manejo
+// ============================================================================
+function talhaoAtual(){ return estado.atual && estado.atual.id ? talhoes.find(x => x.id === estado.atual.id) : null; }
+
+function renderDiario(){
+  const t = talhaoAtual();
+  $("diarioForm").style.display = t ? "" : "none";
+  $("diarioDica").textContent = t ? `Registros de "${t.nome}". Ficam salvos com o talhão e entram no backup.` : "Salve ou selecione um talhão para registrar o manejo.";
+  if (!t) return;
+  const el = $("listaDiario"); el.innerHTML = "";
+  const evs = [...t.diario].sort((a,b) => b.data.localeCompare(a.data));
+  if (!evs.length){ el.innerHTML = '<div class="vazio">Nenhum registro ainda.</div>'; return; }
+  for (const ev of evs){
+    const tp = TIPOS[ev.tipo] || TIPOS.outro;
+    const d = document.createElement("div"); d.className = "evento";
+    d.innerHTML = `<div class="sig" style="background:${tp.cor}">${tp.sig}</div>
+      <div class="tx"><b>${fmtData(ev.data)} · ${esc(tp.nome)}${ev.animais ? ` · ${ev.animais} animais` : ""}</b>${ev.nota ? `<span>${esc(ev.nota)}</span>` : ""}
+        ${ev.lat != null || ev.fotoId ? `<span class="evextra">${ev.lat != null ? '<a data-a="ver">📍 ver no mapa</a>' : ""}${ev.fotoId ? '<a data-a="foto">📷 foto</a>' : ""}</span>` : ""}</div>
+      <button title="Apagar registro">✕</button>`;
+    d.querySelectorAll(".evextra a").forEach(a => a.onclick = () => window.verEvento && window.verEvento(ev, a.dataset.a));
+    d.querySelector("button").onclick = () => {
+      if (!confirm(`Apagar o registro de ${fmtData(ev.data)} (${tp.nome})?`)) return;
+      if (ev.fotoId && window.apagarFoto) window.apagarFoto(ev.fotoId);
+      t.diario = t.diario.filter(x => x.id !== ev.id); gravarTalhoes(talhoes);
+      renderDiario(); renderLista(); diarioMudou();
+    };
+    el.appendChild(d);
+  }
+}
+
+function adicionarEvento(){
+  const t = talhaoAtual(); if (!t) return;
+  const data = $("evData").value, tipo = $("evTipo").value;
+  if (!data){ $("evData").focus(); return; }
+  const animais = (tipo === "entrada" || tipo === "saida") && $("evAnimais").value ? Math.max(0, Math.round(+$("evAnimais").value)) : null;
+  const nota = $("evNota").value.trim();
+  const ev = {id:uid(), data, tipo, animais, nota, criadoEm:new Date().toISOString()};
+  if (window.extrasEvento) Object.assign(ev, window.extrasEvento(ev)); // local (GPS/mapa) e foto
+  t.diario.push(ev);
+  if (gravarTalhoes(talhoes)){
+    $("evNota").value = ""; $("evAnimais").value = "";
+    renderDiario(); renderLista(); diarioMudou();
+  }
+}
+
+function diarioMudou(){
+  if (window.aoMudarDiario) window.aoMudarDiario();
+  const r = estado.resultado;
+  if (r && r.talhaoId && estado.atual && r.talhaoId === estado.atual.id){ redesenharGrafico(); if (r.silagem) mostrarSilagem(); }
+}
+
+function eventosNoPeriodo(r){
+  const t = r && r.talhaoId ? talhoes.find(x => x.id === r.talhaoId) : null;
+  if (!t) return [];
+  return t.diario.filter(e => e.data >= r.ini && e.data <= r.fim).sort((a,b) => a.data.localeCompare(b.data));
+}
+
+// ============================================================================
+// Backup
+// ============================================================================
+$("btnExport").onclick = async () => {
+  if (!talhoes.length){ setStatus("Não há talhões para exportar.", true); return; }
+  let fotos = {};
+  try{ if (window.fotosParaBackup) fotos = await window.fotosParaBackup(); }catch(e){ console.warn(e); }
+  const cfg = window.lerCfg ? window.lerCfg() : undefined;
+  const blob = new Blob([JSON.stringify({app:"monitoramento-talhoes", versao:3, exportadoEm:new Date().toISOString(), talhoes, fotos, cfg}, null, 1)], {type:"application/json"});
+  baixarBlob(blob, `talhoes_backup_${hojeISO()}.json`);
+};
+$("btnImport").onclick = () => $("fileImport").click();
+$("fileImport").onchange = async ev => {
+  const f = ev.target.files[0]; ev.target.value = ""; if (!f) return;
+  try{
+    const j = JSON.parse(await f.text());
+    let novos = [], atualizados = 0;
+    if (Array.isArray(j.talhoes)) novos = j.talhoes.filter(t => t && t.geom && t.nome);
+    else {
+      const feats = j.type === "FeatureCollection" ? j.features : j.type === "Feature" ? [j] : (j.type && j.coordinates) ? [{type:"Feature", properties:{}, geometry:j}] : [];
+      feats.forEach((ft, i) => {
+        if (!ft.geometry || !/Polygon/.test(ft.geometry.type)) return;
+        const p = ft.properties || {};
+        const g = ft.geometry.type === "MultiPolygon" ? {type:"Polygon", coordinates:ft.geometry.coordinates[0]} : ft.geometry;
+        novos.push({id:uid(), nome:p.nome || p.name || p.Name || `${f.name.replace(/\.\w+$/,"")} ${i+1}`, geom:g, criadoEm:new Date().toISOString(), ultimo:null, diario:[]});
+      });
+    }
+    let add = 0;
+    for (const t of novos){
+      if (!Array.isArray(t.diario)) t.diario = [];
+      const ex = talhoes.find(x => x.id === t.id);
+      if (ex){ // talhão já existe: mescla o diário
+        const ids = new Set(ex.diario.map(e => e.id)); let n = 0;
+        for (const e of t.diario) if (!ids.has(e.id)){ ex.diario.push(e); n++; }
+        if (Array.isArray(t.hist)){ // mescla o histórico de índices
+          const hs = new Set((ex.hist || []).map(h => h.iso)); ex.hist = ex.hist || [];
+          for (const h of t.hist) if (!hs.has(h.iso)){ ex.hist.push(h); n++; }
+          ex.hist.sort((a,b) => a.iso.localeCompare(b.iso));
+        }
+        if (n) atualizados++;
+        continue;
+      }
+      t.areaHa = areaHa(t.geom); talhoes.push(t); add++;
+    }
+    if (j.fotos && window.importarFotos) try{ await window.importarFotos(j.fotos); }catch(e){ console.warn(e); }
+    if (j.cfg && window.importarCfg) window.importarCfg(j.cfg);
+    gravarTalhoes(talhoes); renderLista(); renderDiario(); if (window.aoMudarDiario) window.aoMudarDiario();
+    const msg = [add ? `${add} talhão(ões) importado(s)` : "", atualizados ? `diário atualizado em ${atualizados} talhão(ões)` : ""].filter(Boolean).join("; ");
+    setStatus(msg ? msg + "." : "Nada novo encontrado no arquivo.", !msg);
+    if (add){ const b = L.geoJSON({type:"FeatureCollection", features:talhoes.map(t => ({type:"Feature", properties:{}, geometry:t.geom}))}).getBounds(); mapa.fitBounds(b, {padding:[30,30]}); }
+  }catch(e){ setStatus("Não consegui ler esse arquivo: " + e.message, true); }
+};
+
+// ============================================================================
+// Status / progresso
+// ============================================================================
+function setStatus(msg, erro=false){
+  const s = $("status"); s.textContent = msg; s.className = erro ? "erro" : "";
+  // Avisos flutuantes: erros sempre; outras mensagens só fora do processamento (evita excesso)
+  if (msg && window.toast && (erro || $("prog").style.display !== "block")) window.toast(msg, erro);
+}
+function setProg(frac){
+  const p = $("prog"); $("btnProcessar").classList.toggle("carregando", frac != null);
+  if (frac == null){ p.style.display = "none"; return; }
+  p.style.display = "block"; p.firstElementChild.style.width = Math.round(frac*100) + "%";
+}
+
+// ============================================================================
+// Sentinel-2
+// ============================================================================
+function expressao(item, ind){
+  // A partir da linha de base 04.00 (jan/2022) os valores têm deslocamento de +1000.
+  const off = parseFloat(item.properties["s2:processing_baseline"] || "0") >= 4 ? 2000 : 0;
+  const {b1, b2} = INDICES[ind];
+  return off ? `(${b1}-${b2})/(${b1}+${b2}-${off})` : `(${b1}-${b2})/(${b1}+${b2})`;
+}
+
+async function buscarCenas(geom, ini, fim){
+  let body = {
+    collections:[COLECAO], intersects:geom, datetime:`${ini}T00:00:00Z/${fim}T23:59:59Z`, limit:250,
+    query:{"eo:cloud_cover":{lt:80}},
+    fields:{include:["id","properties.datetime","properties.eo:cloud_cover","properties.s2:processing_baseline"], exclude:["assets","links","geometry","bbox"]}
+  };
+  let url = STAC_URL, todas = [];
+  for (let p=0; p<12; p++){
+    const j = await pcPost(url, body);
+    todas.push(...(j.features || []));
+    const nx = (j.links || []).find(l => l.rel === "next");
+    if (!nx || !(j.features||[]).length) break;
+    url = nx.href; body = nx.merge ? {...body, ...(nx.body||{})} : (nx.body || body);
+  }
+  return todas;
+}
+
+async function avaliarNuvem(item, feat, haArea){
+  const j = await pcPost(`${DATA_URL}/statistics?collection=${COLECAO}&item=${encodeURIComponent(item.id)}&assets=SCL&categorical=true`, feat);
+  const s = Object.values(j.properties.statistics)[0];
+  const [contagens, valores] = s.histogram;
+  let validos = 0, ruins = 0;
+  contagens.forEach((c, i) => { const v = Math.round(valores[i]); if (v === 0) return; validos += c; if (SCL_RUIM.includes(v)) ruins += c; });
+  const esperado = Math.max(1, haArea*10000/400); // pixels de 20 m
+  const cobertura = Math.min(1, validos/esperado);
+  const nuvem = validos ? ruins/validos : 1;
+  return {cobertura, nuvem, limpo: cobertura*(1-nuvem)};
+}
+
+async function estatistica(item, feat, ind){
+  const ex = encodeURIComponent(expressao(item, ind));
+  const j = await pcPost(`${DATA_URL}/statistics?collection=${COLECAO}&item=${encodeURIComponent(item.id)}&expression=${ex}&asset_as_band=true`, feat);
+  const s = Object.values(j.properties.statistics)[0];
+  return {media:s.mean, mediana:s.median, p2:s.percentile_2, p98:s.percentile_98, min:s.min, max:s.max};
+}
+
+async function decodificar(blob){
+  const bm = await createImageBitmap(blob);
+  const c = document.createElement("canvas"); c.width = bm.width; c.height = bm.height;
+  const x = c.getContext("2d"); x.drawImage(bm, 0, 0);
+  return x.getImageData(0, 0, c.width, c.height);
+}
+function canvasDe(imgData){
+  const c = document.createElement("canvas"); c.width = imgData.width; c.height = imgData.height;
+  c.getContext("2d").putImageData(imgData, 0, 0); return c;
+}
+function colorir(src, lut){
+  const out = new ImageData(src.width, src.height), s = src.data, o = out.data;
+  for (let i=0; i<s.length; i+=4){
+    if (s[i+3] === 0) continue;
+    const v = s[i];
+    o[i] = lut[v*3]; o[i+1] = lut[v*3+1]; o[i+2] = lut[v*3+2]; o[i+3] = 255;
+  }
+  return out;
+}
+function esticarRGB(src){
+  // realce 2%–98% por banda
+  const s = src.data, n = s.length/4, lim = [];
+  for (let c=0; c<3; c++){
+    const h = new Uint32Array(256); let tot = 0;
+    for (let i=0; i<n; i++){ if (s[i*4+3] === 0) continue; h[s[i*4+c]]++; tot++; }
+    let acc = 0, lo = 0, hi = 255;
+    for (let v=0; v<256; v++){ acc += h[v]; if (acc >= tot*0.02){ lo = v; break; } }
+    acc = 0;
+    for (let v=255; v>=0; v--){ acc += h[v]; if (acc >= tot*0.02){ hi = v; break; } }
+    if (hi <= lo) hi = lo + 1;
+    lim.push([lo, hi]);
+  }
+  const out = new ImageData(src.width, src.height), o = out.data;
+  for (let i=0; i<s.length; i+=4){
+    if (s[i+3] === 0) continue;
+    for (let c=0; c<3; c++){ const [lo,hi] = lim[c]; o[i+c] = (s[i+c]-lo)*255/(hi-lo); }
+    o[i+3] = 255;
+  }
+  return out;
+}
+
+// ============================================================================
+// Clima (Open-Meteo: reanálise ERA5 + últimos dias da previsão)
+// ============================================================================
+async function buscarClima(geom, ini, fim){
+  const [x0,y0,x1,y1] = bboxDe(geom), lat = ((y0+y1)/2).toFixed(4), lon = ((x0+x1)/2).toFixed(4);
+  const vars = "precipitation_sum,temperature_2m_mean,temperature_2m_max,temperature_2m_min";
+  const ontem = somaDias(hojeISO(), -1), fimArq = fim < ontem ? fim : ontem;
+  const dias = {};
+  const juntar = j => { const d = j && j.daily; if (!d) return; d.time.forEach((t, i) => {
+    if (t < ini || t > fim) return;
+    const v = {p:d.precipitation_sum[i], t:d.temperature_2m_mean[i], tmax:d.temperature_2m_max[i], tmin:d.temperature_2m_min[i]};
+    if (v.p == null && v.t == null) return;
+    if (!dias[t] || dias[t].p == null || dias[t].t == null) dias[t] = v;
+  }); };
+  if (ini <= fimArq){
+    const r = await fetch(`https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}&start_date=${ini}&end_date=${fimArq}&daily=${vars}&timezone=auto`);
+    if (r.ok) juntar(await r.json());
+  }
+  if (fim >= somaDias(hojeISO(), -20)){ // últimos dias ainda sem reanálise
+    try{
+      const r2 = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&past_days=21&forecast_days=1&daily=${vars}&timezone=auto`);
+      if (r2.ok) juntar(await r2.json());
+    }catch(e){}
+  }
+  const diario = Object.keys(dias).sort().map(d => ({d, ...dias[d]}));
+  if (!diario.length) return null;
+  const porMes = {};
+  for (const x of diario){
+    const k = x.d.slice(0,7); const m = porMes[k] || (porMes[k] = {mes:k, chuva:0, nP:0, somaT:0, nT:0});
+    if (x.p != null){ m.chuva += x.p; m.nP++; }
+    if (x.t != null){ m.somaT += x.t; m.nT++; }
+  }
+  const mensal = Object.values(porMes).sort((a,b) => a.mes.localeCompare(b.mes)).map(m => ({mes:m.mes, chuva:m.chuva, temp:m.nT ? m.somaT/m.nT : null, dias:m.nP}));
+  const chuvaTotal = diario.reduce((a, x) => a + (x.p || 0), 0);
+  const ts = diario.filter(x => x.t != null);
+  return {lat:+lat, lon:+lon, diario, mensal, chuvaTotal, tempMedia: ts.length ? ts.reduce((a,x) => a + x.t, 0)/ts.length : null, ultimoDia:diario[diario.length-1].d};
+}
+function grausDia(x){ // base 10 °C, teto 30 °C
+  if (x.tmax == null || x.tmin == null) return x.t != null ? Math.max(0, Math.min(x.t,30)-10) : 0;
+  const tx = Math.min(30, Math.max(10, x.tmax)), tn = Math.min(30, Math.max(10, x.tmin));
+  return Math.max(0, (tx+tn)/2 - 10);
+}
+
+// ============================================================================
+// Relevo (Copernicus DEM GLO-30)
+// ============================================================================
+async function buscarRelevo(geom, feat){
+  const j = await pcPost(STAC_URL, {collections:["cop-dem-glo-30"], intersects:geom, limit:10});
+  const itens = j.features || [];
+  if (!itens.length) return null;
+  const sts = await Promise.all(itens.map(it =>
+    pcPost(`${DATA_URL}/statistics?collection=cop-dem-glo-30&item=${encodeURIComponent(it.id)}&assets=data`, feat)
+      .then(x => Object.values(x.properties.statistics)[0]).catch(() => null)));
+  const ok = itens.map((it, i) => ({it, s:sts[i]})).filter(o => o.s && o.s.count > 0);
+  if (!ok.length) return null;
+  const min = Math.min(...ok.map(o => o.s.min)), max = Math.max(...ok.map(o => o.s.max));
+  const cnt = ok.reduce((a, o) => a + o.s.count, 0), media = ok.reduce((a, o) => a + o.s.mean*o.s.count, 0)/cnt;
+  const hi = max > min ? max : min + 1;
+  let base = null;
+  for (const o of ok){
+    const blob = await pcPost(`${DATA_URL}/crop.png?collection=cop-dem-glo-30&item=${encodeURIComponent(o.it.id)}&assets=data&rescale=${min},${hi}&dst_crs=epsg:4326`, feat, "blob");
+    const bm = await createImageBitmap(blob);
+    if (!base){ base = document.createElement("canvas"); base.width = bm.width; base.height = bm.height; }
+    base.getContext("2d").drawImage(bm, 0, 0, base.width, base.height);
+  }
+  const src = base.getContext("2d").getImageData(0, 0, base.width, base.height);
+  const w = src.width, h = src.height, d = src.data;
+  const z = new Float32Array(w*h), val = new Uint8Array(w*h);
+  for (let i=0; i<w*h; i++){ if (d[i*4+3] > 0){ val[i] = 1; z[i] = min + d[i*4]/255*(hi-min); } }
+  const [x0,y0,x1,y1] = bboxDe(geom), latc = (y0+y1)/2*Math.PI/180;
+  const pxm = (x1-x0)*111320*Math.cos(latc)/w, pym = (y1-y0)*110574/h;
+  const pega = (x, y, c) => { if (x<0 || y<0 || x>=w || y>=h) return c; const k = y*w+x; return val[k] ? z[k] : c; };
+  const out = new ImageData(w, h), o = out.data, decl = [], sl = new Float32Array(w*h);
+  const Lz = [-0.5, 0.5, Math.SQRT1_2]; // luz do noroeste, 45°
+  const lut = LUTS.relevo;
+  for (let y=0; y<h; y++) for (let x=0; x<w; x++){
+    const k = y*w+x; if (!val[k]) continue;
+    const c = z[k];
+    const gx = (pega(x+1,y,c) - pega(x-1,y,c))/(2*pxm);
+    const gy = (pega(x,y+1,c) - pega(x,y-1,c))/(2*pym);
+    sl[k] = Math.hypot(gx, gy)*100; decl.push(sl[k]);
+    const ex = 4, nx = -gx*ex, ny = gy*ex, nz = 1, nn = Math.hypot(nx, ny, nz);
+    const sh = Math.max(0, (nx*Lz[0] + ny*Lz[1] + nz*Lz[2])/nn);
+    const f = Math.min(1.25, Math.max(0.45, 0.55 + 0.45*sh/Math.SQRT1_2));
+    const v = d[k*4];
+    o[k*4] = lut[v*3]*f; o[k*4+1] = lut[v*3+1]*f; o[k*4+2] = lut[v*3+2]*f; o[k*4+3] = 255;
+  }
+  decl.sort((a, b) => a - b);
+  const declMedia = decl.reduce((a, b) => a + b, 0)/Math.max(1, decl.length);
+  const declMax = decl.length ? decl[Math.floor(decl.length*0.98)] : 0;
+  return {img:canvasDe(out), min, max, media, faixa:[min, hi], declMedia, declMax, z, sl, val, w, h};
+}
+
+// ============================================================================
+// Mapa médio do período (média de cada pixel em todos os meses)
+// ============================================================================
+function mapaMedio(escolhidas, ind, faixa){
+  const ref = escolhidas[0]["raw_"+ind], w = ref.width, h = ref.height;
+  const soma = new Float64Array(w*h), cont = new Uint16Array(w*h);
+  const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+  const cx = cv.getContext("2d"); cx.imageSmoothingEnabled = false;
+  const [lo, hi] = faixa;
+  for (const e of escolhidas){
+    const raw = e["raw_"+ind];
+    let d = raw.data;
+    if (raw.width !== w || raw.height !== h){
+      cx.clearRect(0, 0, w, h); cx.drawImage(canvasDe(raw), 0, 0, w, h);
+      d = cx.getImageData(0, 0, w, h).data;
+    }
+    for (let i=0; i<w*h; i++){ if (d[i*4+3] > 0){ soma[i] += lo + d[i*4]/255*(hi-lo); cont[i]++; } }
+  }
+  const val = new Float32Array(w*h).fill(NaN), lista = [];
+  for (let i=0; i<w*h; i++) if (cont[i]){ val[i] = soma[i]/cont[i]; lista.push(val[i]); }
+  if (!lista.length) return null;
+  lista.sort((a, b) => a - b);
+  const q = f => lista[Math.min(lista.length-1, Math.floor(f*lista.length))];
+  const media = lista.reduce((a, b) => a + b, 0)/lista.length;
+  let p2 = q(0.02), p98 = q(0.98); if (!(p98 > p2)){ p2 -= 0.02; p98 += 0.02; }
+  const lut = LUTS[ind];
+  const out = new ImageData(w, h), o = out.data;
+  let abaixo = 0, acima = 0;
+  const tol = Math.max(0.03, Math.abs(media)*0.1);
+  for (let i=0; i<w*h; i++){
+    if (isNaN(val[i])) continue;
+    const v = Math.max(0, Math.min(255, Math.round((val[i]-p2)/(p98-p2)*255)));
+    o[i*4] = lut[v*3]; o[i*4+1] = lut[v*3+1]; o[i*4+2] = lut[v*3+2]; o[i*4+3] = 255;
+    if (val[i] < media - tol) abaixo++; else if (val[i] > media + tol) acima++;
+  }
+  const n = lista.length;
+  return {img:canvasDe(out), val, w, h, media, faixa:[p2, p98], min:lista[0], max:lista[n-1], tol,
+          pAbaixo:abaixo/n, pAcima:acima/n, pMedia:(n-abaixo-acima)/n};
+}
+
+// ============================================================================
+// Zonas de manejo
+// ============================================================================
+function opcoesZonas(){ return {n:+$("zonaN").value || 3, relevo:$("zonaRelevo").checked}; }
+
+// amostragem bilinear de uma grade (sw x sh) para a grade alvo (tw x th) sobre a mesma área
+function amostrador(arr, sw, sh, tw, th){
+  return (x, y) => {
+    const sx = (x+0.5)/tw*sw - 0.5, sy = (y+0.5)/th*sh - 0.5;
+    const x0 = Math.max(0, Math.min(sw-1, Math.floor(sx))), y0 = Math.max(0, Math.min(sh-1, Math.floor(sy)));
+    const x1 = Math.min(sw-1, x0+1), y1 = Math.min(sh-1, y0+1);
+    const fx = Math.min(1, Math.max(0, sx-x0)), fy = Math.min(1, Math.max(0, sy-y0));
+    const a = arr[y0*sw+x0], b = arr[y0*sw+x1], c = arr[y1*sw+x0], d = arr[y1*sw+x1];
+    if (!isNaN(a) && !isNaN(b) && !isNaN(c) && !isNaN(d)) return (a*(1-fx)+b*fx)*(1-fy) + (c*(1-fx)+d*fx)*fy;
+    const v = arr[Math.max(0, Math.min(sh-1, Math.round(sy)))*sw + Math.max(0, Math.min(sw-1, Math.round(sx)))];
+    if (!isNaN(v)) return v;
+    for (const q of [a, b, c, d]) if (!isNaN(q)) return q;
+    return NaN;
+  };
+}
+function gerador(seed){ return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+
+// Zonas de manejo com TODOS os dados: em cada data, cada pixel de NDVI, NDMI e NDRE é comparado com a
+// média do talhão naquela data (escore z). A média desses escores ao longo do período diz se o pixel fica
+// sistematicamente acima ou abaixo do talhão. Esses escores (+ altitude, opcional) vão para um k-means
+// multivariado (k-means++ com reinícios). Depois: filtro de maioria e fusão de manchas pequenas.
+function calcularZonas(r, op){
+  const P = r.pilha; if (!P || !P.ndvi || !P.ndvi.meses.length) return null;
+  const n = Math.max(2, Math.min(5, op.n || 3));
+  const ref = P.ndvi.meses[0], w = ref.w, h = ref.h, N = w*h;
+  const feats = [], nomes = [], pesos = [], rel = {};
+  let abaixo = null;
+  for (const ind of IDX){
+    const st = P[ind]; if (!st || !st.meses.length) continue;
+    const soma = new Float64Array(N), cnt = new Uint16Array(N), nBaixo = new Uint16Array(N);
+    let usados = 0;
+    for (const m of st.meses){
+      const amo = (m.w === w && m.h === h) ? null : amostrador(m.v, m.w, m.h, w, h);
+      const vals = new Float32Array(N).fill(NaN); let s1 = 0, s2 = 0, k = 0;
+      for (let y=0; y<h; y++) for (let x=0; x<w; x++){
+        const i = y*w+x, v = amo ? amo(x, y) : m.v[i];
+        if (!isNaN(v)){ vals[i] = v; s1 += v; s2 += v*v; k++; }
+      }
+      if (k < 10) continue;
+      usados++;
+      const mu = s1/k, sd = Math.sqrt(Math.max(1e-12, s2/k - mu*mu));
+      for (let i=0; i<N; i++){ const v = vals[i]; if (!isNaN(v)){ const z = (v-mu)/sd; soma[i] += z; cnt[i]++; if (z < 0) nBaixo[i]++; } }
+    }
+    const minMeses = Math.max(1, Math.ceil(usados/2));
+    const a = new Float32Array(N).fill(NaN);
+    for (let i=0; i<N; i++) if (cnt[i] >= minMeses) a[i] = soma[i]/cnt[i];
+    rel[ind] = a;
+    if (ind === "ndvi"){ abaixo = new Float32Array(N).fill(NaN); for (let i=0; i<N; i++) if (cnt[i]) abaixo[i] = nBaixo[i]/cnt[i]; }
+    feats.push(a); nomes.push(ind); pesos.push(1);
+  }
+  // relevo na mesma grade
+  let alt = null, decl = null;
+  if (r.relevo && r.relevo.sl){
+    const R = r.relevo;
+    const zN = Float32Array.from(R.z, (v, i) => R.val[i] ? v : NaN), sN = Float32Array.from(R.sl, (v, i) => R.val[i] ? v : NaN);
+    const a1 = amostrador(zN, R.w, R.h, w, h), a2 = amostrador(sN, R.w, R.h, w, h);
+    alt = new Float32Array(N); decl = new Float32Array(N);
+    for (let y=0; y<h; y++) for (let x=0; x<w; x++){ const i = y*w+x; alt[i] = a1(x, y); decl[i] = a2(x, y); }
+    // só a altitude entra no agrupamento: a declividade do DEM de 30 m é ruidosa (fica como informação)
+    if (op.relevo){ feats.push(alt); nomes.push("alt"); pesos.push(0.5); }
+  }
+  const usaRelevo = nomes.includes("alt");
+  const idx = []; for (let i=0; i<N; i++) if (!isNaN(rel.ndvi[i]) && feats.every(f => !isNaN(f[i]))) idx.push(i);
+  if (idx.length < n*10) return null;
+  const D = feats.length, M = idx.length;
+  // padroniza (peso entra como raiz para pesar a distância ao quadrado)
+  const X = new Float32Array(M*D);
+  for (let d=0; d<D; d++){
+    let s1 = 0, s2 = 0; for (const i of idx){ const v = feats[d][i]; s1 += v; s2 += v*v; }
+    const mu = s1/M, sd = Math.sqrt(Math.max(1e-12, s2/M - mu*mu)), wq = Math.sqrt(pesos[d]);
+    // limita extremos em ±2,5 desvios para poucos pixels atípicos não formarem uma zona própria
+    for (let k=0; k<M; k++) X[k*D+d] = Math.max(-2.5, Math.min(2.5, (feats[d][idx[k]] - mu)/sd))*wq;
+  }
+  const dist2 = (k, c, C) => { let s = 0; for (let d=0; d<D; d++){ const q = X[k*D+d] - C[c*D+d]; s += q*q; } return s; };
+  // k-means++ com reinícios numa amostra; depois classifica todos os pixels
+  const rnd = gerador(12345);
+  const S = Math.min(M, 20000), amostra = [];
+  if (S === M) for (let k=0; k<M; k++) amostra.push(k); else for (let k=0; k<S; k++) amostra.push(Math.floor(rnd()*M));
+  let melhor = null;
+  for (let rep=0; rep<12; rep++){
+    const C = new Float32Array(n*D);
+    let k0 = amostra[Math.floor(rnd()*S)]; for (let d=0; d<D; d++) C[d] = X[k0*D+d];
+    const dmin = new Float64Array(S).fill(Infinity);
+    for (let c=1; c<n; c++){
+      let tot = 0;
+      for (let j=0; j<S; j++){ const v = dist2(amostra[j], c-1, C); if (v < dmin[j]) dmin[j] = v; tot += dmin[j]; }
+      let alvo = rnd()*tot, esc = S-1; for (let j=0; j<S; j++){ alvo -= dmin[j]; if (alvo <= 0){ esc = j; break; } }
+      for (let d=0; d<D; d++) C[c*D+d] = X[amostra[esc]*D+d];
+    }
+    const lab = new Uint8Array(S); let sse = 0;
+    for (let it=0; it<60; it++){
+      let mudou = 0; sse = 0;
+      for (let j=0; j<S; j++){
+        let bc = 0, bd = Infinity; for (let c=0; c<n; c++){ const v = dist2(amostra[j], c, C); if (v < bd){ bd = v; bc = c; } }
+        if (lab[j] !== bc || it === 0){ lab[j] = bc; mudou++; } sse += bd;
+      }
+      const soma = new Float64Array(n*D), cnt = new Uint32Array(n);
+      for (let j=0; j<S; j++){ const c = lab[j]; cnt[c]++; for (let d=0; d<D; d++) soma[c*D+d] += X[amostra[j]*D+d]; }
+      for (let c=0; c<n; c++) if (cnt[c]) for (let d=0; d<D; d++) C[c*D+d] = soma[c*D+d]/cnt[c];
+      if (!mudou) break;
+    }
+    // descarta soluções com zona muito pequena (< 5% do talhão), que não servem para manejo
+    const tam = new Uint32Array(n); for (let j=0; j<S; j++) tam[lab[j]]++;
+    const valida = Math.min(...tam) >= 0.05*S;
+    if (!melhor || (valida && !melhor.valida) || (valida === melhor.valida && sse < melhor.sse)) melhor = {sse, valida, C: C.slice()};
+  }
+  // ordena: zona 1 = pior desempenho (NDVI + NDRE relativos), última = melhor
+  const C = melhor.C, dN = nomes.indexOf("ndvi"), dR = nomes.indexOf("ndre");
+  const ordem = [...Array(n).keys()].sort((a, b) => (C[a*D+dN] + (dR>=0 ? C[a*D+dR] : 0)) - (C[b*D+dN] + (dR>=0 ? C[b*D+dR] : 0)));
+  const rank = new Uint8Array(n); ordem.forEach((c, i) => rank[c] = i+1);
+  let cls = new Uint8Array(N);
+  for (let k=0; k<M; k++){
+    let bc = 0, bd = Infinity; for (let c=0; c<n; c++){ const v = dist2(k, c, C); if (v < bd){ bd = v; bc = c; } }
+    cls[idx[k]] = rank[bc];
+  }
+  // filtro de maioria 3x3
+  { const novo = cls.slice();
+    for (let y=0; y<h; y++) for (let x=0; x<w; x++){
+      const k = y*w+x; if (!cls[k]) continue;
+      const cnt = new Uint16Array(n+1);
+      for (let dy=-1; dy<=1; dy++) for (let dx=-1; dx<=1; dx++){ const xx = x+dx, yy = y+dy; if (xx<0||yy<0||xx>=w||yy>=h) continue; cnt[cls[yy*w+xx]]++; }
+      let best = cls[k]; for (let z=1; z<=n; z++) if (cnt[z] > cnt[best]) best = z;
+      novo[k] = best;
+    }
+    cls = novo; }
+  // funde manchas menores que a área mínima na zona vizinha com maior contato
+  const haPix = r.areaHa / M, minPix = Math.max(4, Math.round(Math.max(AREA_MIN_HA/haPix, 0.01*M)));
+  for (let volta=0; volta<6; volta++){
+    const comp = new Int32Array(N).fill(-1); let mudou = 0, nc = 0;
+    for (let s0=0; s0<N; s0++){
+      if (!cls[s0] || comp[s0] >= 0) continue;
+      const z = cls[s0], fila = [s0]; comp[s0] = nc; const viz = new Float64Array(n+1);
+      for (let q=0; q<fila.length; q++){
+        const k = fila[q], x = k % w, y = (k - x)/w;
+        for (const [xx, yy] of [[x+1,y],[x-1,y],[x,y+1],[x,y-1]]){
+          if (xx<0||yy<0||xx>=w||yy>=h) continue;
+          const kk = yy*w+xx, zz = cls[kk]; if (!zz) continue;
+          if (zz === z){ if (comp[kk] < 0){ comp[kk] = nc; fila.push(kk); } } else viz[zz]++;
+        }
+      }
+      if (fila.length < minPix){
+        let alvo = 0; for (let zz=1; zz<=n; zz++) if (viz[zz] > (viz[alvo] || 0)) alvo = zz;
+        if (alvo){ for (const k of fila) cls[k] = alvo; mudou++; }
+      }
+      nc++;
+    }
+    if (!mudou) break;
+  }
+  // qualidade: quanto da variação de cada variável fica explicada pelas zonas
+  const explica = arr => {
+    let s1 = 0, s2 = 0, m = 0; const sz = new Float64Array(n+1), cz = new Float64Array(n+1), qz = new Float64Array(n+1);
+    for (const i of idx){ const v = arr[i]; if (isNaN(v)) continue; s1 += v; s2 += v*v; m++; const z = cls[i]; sz[z] += v; qz[z] += v*v; cz[z]++; }
+    const tot = s2 - s1*s1/m; let dentro = 0; for (let z=1; z<=n; z++) if (cz[z]) dentro += qz[z] - sz[z]*sz[z]/cz[z];
+    return tot > 0 ? Math.max(0, 1 - dentro/tot) : 0;
+  };
+  const qualidade = {ndvi:explica(rel.ndvi), ndmi:rel.ndmi ? explica(rel.ndmi) : null, ndre:rel.ndre ? explica(rel.ndre) : null, alt: alt ? explica(alt) : null};
+  // estatísticas por zona
+  const media = (arr, sw, sh) => { const amo = (sw === w && sh === h) ? null : amostrador(arr, sw, sh, w, h);
+    const s = new Float64Array(n+1), c = new Float64Array(n+1);
+    for (let y=0; y<h; y++) for (let x=0; x<w; x++){ const i = y*w+x, z = cls[i]; if (!z) continue; const v = amo ? amo(x, y) : arr[i]; if (!isNaN(v)){ s[z] += v; c[z]++; } }
+    return z => c[z] ? s[z]/c[z] : null; };
+  const mI = {}; for (const ind of IDX){ const mp = r.mediaPeriodo[ind]; if (mp) mI[ind] = media(mp.val, mp.w, mp.h); }
+  const mAlt = alt ? media(alt, w, h) : null, mDecl = decl ? media(decl, w, h) : null, mAb = media(abaixo, w, h);
+  const cnt = new Float64Array(n+1); for (let i=0; i<N; i++) if (cls[i]) cnt[cls[i]]++;
+  const tot = cnt.reduce((a, b) => a + b, 0), stats = {};
+  for (let z=1; z<=n; z++) stats[z] = {pixels:cnt[z], frac:cnt[z]/tot, area:cnt[z]/tot*r.areaHa,
+    ndvi:mI.ndvi ? mI.ndvi(z) : null, ndmi:mI.ndmi ? mI.ndmi(z) : null, ndre:mI.ndre ? mI.ndre(z) : null,
+    alt:mAlt ? mAlt(z) : null, decl:mDecl ? mDecl(z) : null, abaixo:mAb(z)};
+  const out = new ImageData(w, h), o = out.data, cores = ZONAS_CORES[n].map(hexRgb);
+  for (let i=0; i<N; i++){ const z = cls[i]; if (!z) continue; const c = cores[z-1]; o[i*4] = c[0]; o[i*4+1] = c[1]; o[i*4+2] = c[2]; o[i*4+3] = 255; }
+  return {n, cls, w, h, stats, qualidade, usaRelevo, variaveis:nomes, meses:P.ndvi.meses.length, minHa:minPix*haPix, img:canvasDe(out)};
+}
+
+// Contorno das zonas em polígonos (lon/lat). Anéis externos anti-horários, buracos horários (RFC 7946).
+function zonasParaPoligonos(zn, bbox){
+  const {cls, w, h} = zn, [x0,y0,x1,y1] = bbox;
+  const lon = X => x0 + X/w*(x1-x0), lat = Y => y1 - Y/h*(y1-y0);
+  const res = {};
+  for (let z=1; z<=zn.n; z++){
+    const saidas = new Map(); // vértice -> arestas que saem dele
+    const add = (ax, ay, bx, by) => { const k = ax+","+ay; let l = saidas.get(k); if (!l) saidas.set(k, l = []); l.push([ax, ay, bx, by]); };
+    const de = (x, y) => x>=0 && y>=0 && x<w && y<h && cls[y*w+x] === z;
+    for (let y=0; y<h; y++) for (let x=0; x<w; x++){
+      if (cls[y*w+x] !== z) continue;
+      if (!de(x, y-1)) add(x, y, x+1, y);       // topo
+      if (!de(x+1, y)) add(x+1, y, x+1, y+1);   // direita
+      if (!de(x, y+1)) add(x+1, y+1, x, y+1);   // base
+      if (!de(x-1, y)) add(x, y+1, x, y);       // esquerda
+    }
+    const aneis = [];
+    for (const [, lst] of saidas){
+      while (lst.length){
+        let e = lst.pop(); const anel = [[e[0], e[1]]];
+        let guarda = 0;
+        while (guarda++ < 1e7){
+          const [ax, ay, bx, by] = e;
+          if (bx === anel[0][0] && by === anel[0][1]) break;
+          anel.push([bx, by]);
+          const cand = saidas.get(bx+","+by);
+          if (!cand || !cand.length) break;
+          // em vértices com duas saídas, vira à direita (separa regiões que só se tocam na diagonal)
+          const dx = bx-ax, dy = by-ay, pref = [[-dy, dx], [dx, dy], [dy, -dx]];
+          let idx = 0;
+          if (cand.length > 1){
+            for (const [px, py] of pref){ const j = cand.findIndex(c => c[2]-c[0] === px && c[3]-c[1] === py); if (j >= 0){ idx = j; break; } }
+          }
+          e = cand.splice(idx, 1)[0];
+        }
+        const lim = []; // remove pontos colineares
+        for (let i=0; i<anel.length; i++){
+          const a = anel[(i-1+anel.length)%anel.length], b = anel[i], c = anel[(i+1)%anel.length];
+          if ((b[0]-a[0])*(c[1]-b[1]) - (b[1]-a[1])*(c[0]-b[0]) !== 0) lim.push(b);
+        }
+        if (lim.length >= 3) aneis.push(lim);
+      }
+    }
+    // o traçado anda em sentido horário no mapa; inverte para externos anti-horários (área > 0)
+    const geo = aneis.map(a => { const g = a.map(([X, Y]) => [lon(X), lat(Y)]).reverse(); g.push(g[0].slice()); return g; });
+    const area = g => { let s = 0; for (let i=0; i<g.length-1; i++) s += g[i][0]*g[i+1][1] - g[i+1][0]*g[i][1]; return s/2; };
+    const ext = [], bur = [];
+    geo.forEach(g => (area(g) > 0 ? ext : bur).push(g));
+    const dentro = (pt, g) => { let ins = false; for (let i=0, j=g.length-2; i<g.length-1; j=i++){ const [xi, yi] = g[i], [xj, yj] = g[j]; if (((yi > pt[1]) !== (yj > pt[1])) && (pt[0] < (xj-xi)*(pt[1]-yi)/(yj-yi) + xi)) ins = !ins; } return ins; };
+    const pols = ext.map(g => [g]);
+    for (const b of bur){
+      const pt = [(b[0][0]+b[1][0])/2, (b[0][1]+b[1][1])/2];
+      const cont = pols.filter(p => dentro(pt, p[0])).sort((p, q) => Math.abs(area(p[0])) - Math.abs(area(q[0])))[0];
+      if (cont) cont.push(b);
+    }
+    res[z] = pols;
+  }
+  return res;
+}
+
+function zonasGeoJSON(r){
+  const zn = r.zonas, pols = zonasParaPoligonos(zn, r.bbox), rd = (v, k) => v == null || isNaN(v) ? null : Math.round(v*10**k)/10**k;
+  const zs = []; for (let z=1; z<=zn.n; z++) if (pols[z].length) zs.push(z);
+  return {type:"FeatureCollection", name:`zonas_${nomeArquivo(r.nome)}`, features:zs.map(z => { const s = zn.stats[z]; return {
+    type:"Feature",
+    properties:{ZONA:z, CLASSE:zonaNome(zn, z), AREA_HA:rd(s.area, 2), NDVI_MED:rd(s.ndvi, 3), NDMI_MED:rd(s.ndmi, 3), NDRE_MED:rd(s.ndre, 3),
+      ALT_MED:rd(s.alt, 1), DECL_MED:rd(s.decl, 1), ABAIXO_PC:s.abaixo == null ? null : Math.round(s.abaixo*100), TAXA:null},
+    geometry:{type:"MultiPolygon", coordinates:pols[z]}
+  }; })};
+}
+
+// --- Shapefile (polígono, WGS84) dentro de um .zip ------------------------
+function shapefileZip(gj, base){
+  const feats = gj.features;
+  const recs = feats.map(f => {
+    const partes = [];
+    for (const pol of f.geometry.coordinates) pol.forEach(anel => partes.push(anel.slice().reverse())); // shp: externos horários
+    const pts = partes.flat();
+    let bx = [Infinity, Infinity, -Infinity, -Infinity];
+    for (const [x, y] of pts){ bx[0] = Math.min(bx[0], x); bx[1] = Math.min(bx[1], y); bx[2] = Math.max(bx[2], x); bx[3] = Math.max(bx[3], y); }
+    return {partes, n:pts.length, bx};
+  });
+  const bbAll = [Math.min(...recs.map(r=>r.bx[0])), Math.min(...recs.map(r=>r.bx[1])), Math.max(...recs.map(r=>r.bx[2])), Math.max(...recs.map(r=>r.bx[3]))];
+  const conteudo = recs.map(r => 44 + 4*r.partes.length + 16*r.n);
+  const shpLen = 100 + conteudo.reduce((a, c) => a + 8 + c, 0), shxLen = 100 + 8*recs.length;
+  const cab = (dv, len) => {
+    dv.setInt32(0, 9994, false); dv.setInt32(24, len/2, false); dv.setInt32(28, 1000, true); dv.setInt32(32, 5, true);
+    bbAll.forEach((v, i) => dv.setFloat64(36+8*i, v, true));
+  };
+  const shp = new ArrayBuffer(shpLen), shx = new ArrayBuffer(shxLen);
+  const ds = new DataView(shp), dx = new DataView(shx);
+  cab(ds, shpLen); cab(dx, shxLen);
+  let off = 100;
+  recs.forEach((r, i) => {
+    dx.setInt32(100+8*i, off/2, false); dx.setInt32(104+8*i, conteudo[i]/2, false);
+    ds.setInt32(off, i+1, false); ds.setInt32(off+4, conteudo[i]/2, false);
+    let p = off + 8;
+    ds.setInt32(p, 5, true); p += 4;
+    r.bx.forEach(v => { ds.setFloat64(p, v, true); p += 8; });
+    ds.setInt32(p, r.partes.length, true); p += 4; ds.setInt32(p, r.n, true); p += 4;
+    let acc = 0; for (const pt of r.partes){ ds.setInt32(p, acc, true); p += 4; acc += pt.length; }
+    for (const pt of r.partes) for (const [x, y] of pt){ ds.setFloat64(p, x, true); ds.setFloat64(p+8, y, true); p += 16; }
+    off += 8 + conteudo[i];
+  });
+  // DBF
+  const campos = [["ZONA","N",2,0],["CLASSE","C",12,0],["AREA_HA","N",12,2],["NDVI_MED","N",8,3],["NDMI_MED","N",8,3],["NDRE_MED","N",8,3],["ALT_MED","N",8,1],["DECL_MED","N",6,1],["ABAIXO_PC","N",4,0],["TAXA","N",12,2]];
+  const recLen = 1 + campos.reduce((a, c) => a + c[2], 0), hdrLen = 32 + 32*campos.length + 1;
+  const dbf = new Uint8Array(hdrLen + recLen*feats.length + 1); const dd = new DataView(dbf.buffer);
+  const hoje = new Date();
+  dbf[0] = 3; dbf[1] = hoje.getFullYear()-1900; dbf[2] = hoje.getMonth()+1; dbf[3] = hoje.getDate();
+  dd.setUint32(4, feats.length, true); dd.setUint16(8, hdrLen, true); dd.setUint16(10, recLen, true);
+  campos.forEach(([nome, tipo, len, dec], i) => {
+    const o = 32 + 32*i; for (let k=0; k<nome.length; k++) dbf[o+k] = nome.charCodeAt(k);
+    dbf[o+11] = tipo.charCodeAt(0); dbf[o+16] = len; dbf[o+17] = dec;
+  });
+  dbf[32 + 32*campos.length] = 0x0D;
+  const asc = s => s.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^\x20-\x7e]/g,"?");
+  feats.forEach((f, i) => {
+    let o = hdrLen + recLen*i; dbf[o++] = 0x20;
+    for (const [nome, tipo, len, dec] of campos){
+      const v = f.properties[nome];
+      let s = v == null ? "" : tipo === "N" ? Number(v).toFixed(dec) : asc(String(v));
+      s = tipo === "N" ? s.slice(-len).padStart(len, " ") : s.slice(0, len).padEnd(len, " ");
+      for (let k=0; k<len; k++) dbf[o+k] = s.charCodeAt(k);
+      o += len;
+    }
+  });
+  dbf[dbf.length-1] = 0x1A;
+  const prj = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]';
+  const enc = new TextEncoder();
+  return zipArquivos([
+    [base+".shp", new Uint8Array(shp)], [base+".shx", new Uint8Array(shx)], [base+".dbf", dbf],
+    [base+".prj", enc.encode(prj)], [base+".cpg", enc.encode("UTF-8")]
+  ]);
+}
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n=0; n<256; n++){ let c = n; for (let k=0; k<8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b){ let c = 0xFFFFFFFF; for (let i=0; i<b.length; i++) c = CRC_T[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipArquivos(arqs){ // zip sem compressão (método "store")
+  const enc = new TextEncoder(), partes = [], central = []; let off = 0;
+  for (const [nome, dados] of arqs){
+    const n = enc.encode(nome), crc = crc32(dados);
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(4, 20, true); lh.setUint16(8, 0, true);
+    lh.setUint32(14, crc, true); lh.setUint32(18, dados.length, true); lh.setUint32(22, dados.length, true); lh.setUint16(26, n.length, true);
+    partes.push(new Uint8Array(lh.buffer), n, dados);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(4, 20, true); ch.setUint16(6, 20, true);
+    ch.setUint32(16, crc, true); ch.setUint32(20, dados.length, true); ch.setUint32(24, dados.length, true);
+    ch.setUint16(28, n.length, true); ch.setUint32(42, off, true);
+    central.push(new Uint8Array(ch.buffer), n);
+    off += 30 + n.length + dados.length;
+  }
+  const tamC = central.reduce((a, c) => a + c.length, 0);
+  const fim = new DataView(new ArrayBuffer(22));
+  fim.setUint32(0, 0x06054b50, true); fim.setUint16(8, arqs.length, true); fim.setUint16(10, arqs.length, true);
+  fim.setUint32(12, tamC, true); fim.setUint32(16, off, true);
+  return new Blob([...partes, ...central, new Uint8Array(fim.buffer)], {type:"application/zip"});
+}
+
+// ============================================================================
+// Processamento principal
+// ============================================================================
+async function processar(){
+  const at = estado.atual; if (!at) return;
+  const ini = $("dIni").value, fim = $("dFim").value;
+  if (!ini || !fim || ini > fim){ setStatus("Confira o período escolhido.", true); return; }
+  const maxNuvem = parseFloat($("maxNuvem").value);
+  if (at.lote) return processarLote(at, ini, fim, maxNuvem);
+  const ha = areaHa(at.geom);
+  if (ha > 50000){ setStatus("Área muito grande (acima de 50.000 ha). Desenhe um talhão menor.", true); return; }
+
+  $("btnProcessar").disabled = true; $("btnPdf").style.display = "none";
+  limparResultado();
+  try{
+    const res = await analisarArea(at, ini, fim, maxNuvem, setProg, setStatus);
+    estado.resultado = res;
+    if (at.id){
+      const t = talhoes.find(x => x.id === at.id);
+      t.ultimo = resumoUltimo(res); gravarTalhoes(talhoes); renderLista(); atualizarPainelAtual();
+    }
+    mostrarResultado(true);
+    setProg(null);
+    setStatus(`Relatório pronto: ${res.meses.length} mês(es) analisados.` + (res.clima ? "" : " (clima indisponível)") + (at.id || at.multi ? "" : " Salve a área para guardá-la na sua lista e usar o diário."));
+    $("btnPdf").style.display = "";
+  }catch(e){
+    console.error(e); setProg(null);
+    setStatus("Erro: " + msgErro(e), true);
+  }finally{
+    $("btnProcessar").disabled = !estado.atual;
+  }
+}
+const msgErro = e => (e.message || e) + (String(e).includes("Failed to fetch") ? " (verifique sua conexão com a internet)" : "");
+
+// Análise completa de uma área (sem mexer na tela). Devolve o resultado.
+async function analisarArea(at, ini, fim, maxNuvem, setProg, setStatus){
+  const geom = at.geom, feat = {type:"Feature", properties:{}, geometry:geom};
+  const ha = areaHa(geom);
+  {
+    setStatus("Buscando imagens Sentinel-2, clima e relevo…"); setProg(0.03);
+    const pRelevo = buscarRelevo(geom, feat).catch(e => { console.warn("Relevo indisponível:", e); return null; });
+    const pClima = buscarClima(geom, ini, fim).catch(e => { console.warn("Clima indisponível:", e); return null; });
+    const cenas = await buscarCenas(geom, ini, fim);
+    if (!cenas.length) throw new Error("Nenhuma imagem encontrada nesse período.");
+
+    const porMes = {};
+    for (const c of cenas){ const k = c.properties.datetime.slice(0,7); (porMes[k] = porMes[k] || []).push(c); }
+    const meses = Object.keys(porMes).sort();
+    const candidatas = [];
+    for (const m of meses){
+      porMes[m].sort((a,b) => a.properties["eo:cloud_cover"] - b.properties["eo:cloud_cover"]);
+      porMes[m].slice(0, 6).forEach(c => candidatas.push({mes:m, item:c}));
+    }
+    setStatus(`${cenas.length} imagens encontradas. Verificando nuvens dentro do talhão…`);
+    let feitos = 0;
+    await pool(candidatas, 5, async cd => {
+      try{ cd.av = await avaliarNuvem(cd.item, feat, ha); }catch(e){ cd.av = null; }
+      feitos++; setProg(0.05 + 0.25*feitos/candidatas.length);
+    });
+
+    const escolhidas = [], ignorados = [];
+    for (const m of meses){
+      const ok = candidatas.filter(c => c.mes === m && c.av && c.av.cobertura >= 0.9 && c.av.nuvem <= maxNuvem)
+        .sort((a,b) => b.av.limpo - a.av.limpo || a.av.nuvem - b.av.nuvem);
+      if (ok.length) escolhidas.push(ok[0]); else ignorados.push(m);
+    }
+    if (!escolhidas.length) throw new Error("Nenhum mês teve imagem limpa sobre o talhão. Tente aumentar a nuvem máxima aceita ou ampliar o período.");
+
+    setStatus(`Calculando NDVI, NDMI e NDRE de ${escolhidas.length} mês(es)…`);
+    feitos = 0;
+    const tarefasSt = escolhidas.flatMap(e => IDX.map(ind => [e, ind]));
+    await pool(tarefasSt, 5, async ([e, ind]) => {
+      e[ind] = await estatistica(e.item, feat, ind);
+      feitos++; setProg(0.3 + 0.2*feitos/tarefasSt.length);
+    });
+
+    const faixas = {};
+    for (const ind of IDX){
+      let lo = Math.min(...escolhidas.map(e => e[ind].p2)), hi = Math.max(...escolhidas.map(e => e[ind].p98));
+      if (!(hi > lo)){ lo -= 0.05; hi += 0.05; }
+      faixas[ind] = [lo, hi];
+    }
+
+    setStatus("Baixando os mapas de cada mês…");
+    feitos = 0;
+    const tarefas = escolhidas.flatMap(e => [...IDX, "rgb"].map(ind => [e, ind]));
+    await pool(tarefas, 5, async ([e, ind]) => {
+      const idEnc = encodeURIComponent(e.item.id);
+      const url = ind === "rgb"
+        ? `${DATA_URL}/crop.png?collection=${COLECAO}&item=${idEnc}&assets=visual&asset_bidx=${encodeURIComponent("visual|1,2,3")}&dst_crs=epsg:4326`
+        : `${DATA_URL}/crop.png?collection=${COLECAO}&item=${idEnc}&expression=${encodeURIComponent(expressao(e.item, ind))}&asset_as_band=true&rescale=${faixas[ind][0]},${faixas[ind][1]}&dst_crs=epsg:4326`;
+      const img = await decodificar(await pcPost(url, feat, "blob"));
+      if (ind !== "rgb") e["raw_"+ind] = img;
+      e["img_"+ind] = canvasDe(ind === "rgb" ? esticarRGB(img) : colorir(img, LUTS[ind]));
+      feitos++; setProg(0.5 + 0.45*feitos/tarefas.length);
+    });
+
+    let contexto = null;
+    try{
+      const ult = escolhidas[escolhidas.length-1];
+      const [bx0,by0,bx1,by1] = bboxDe(geom), mx = (bx1-bx0)*0.15, my = (by1-by0)*0.15;
+      const bb = [bx0-mx, by0-my, bx1+mx, by1+my];
+      const rr = await fetch(`${DATA_URL}/bbox/${bb.map(v => v.toFixed(6)).join(",")}.png?collection=${COLECAO}&item=${encodeURIComponent(ult.item.id)}&assets=visual&asset_bidx=${encodeURIComponent("visual|1,2,3")}&dst_crs=epsg:4326`);
+      if (rr.ok) contexto = {img:canvasDe(esticarRGB(await decodificar(await rr.blob()))), bbox:bb};
+    }catch(e){ contexto = null; }
+
+    const mediaPeriodo = {};
+    for (const ind of IDX) mediaPeriodo[ind] = mapaMedio(escolhidas, ind, faixas[ind]);
+    // pilha com o valor de cada pixel em cada data (base das zonas de manejo)
+    const pilha = {};
+    for (const ind of IDX){
+      const [lo, hi] = faixas[ind];
+      pilha[ind] = {meses: escolhidas.map(e => {
+        const raw = e["raw_"+ind], v = new Float32Array(raw.width*raw.height).fill(NaN), d = raw.data;
+        for (let i=0; i<v.length; i++) if (d[i*4+3] > 0) v[i] = lo + d[i*4]/255*(hi-lo);
+        return {w:raw.width, h:raw.height, v};
+      })};
+    }
+    escolhidas.forEach(e => IDX.forEach(ind => delete e["raw_"+ind]));
+    setStatus("Finalizando relevo e clima…");
+    const [relevo, clima] = await Promise.all([pRelevo, pClima]);
+    if (relevo) faixas.relevo = relevo.faixa;
+
+    const res = {
+      talhaoId: at.id, multi: at.multi || null, nome: at.nome || (at.id ? talhoes.find(t => t.id === at.id).nome : "Área sem nome"),
+      geom, bbox:bboxDe(geom), areaHa:ha, ini, fim, maxNuvem, faixas,
+      meses: escolhidas.map(e => ({
+        mes:e.mes, data:fmtData(e.item.properties.datetime), iso:e.item.properties.datetime.slice(0,10), id:e.item.id,
+        nuvem:e.av.nuvem, ndvi:e.ndvi, ndmi:e.ndmi, ndre:e.ndre,
+        img:{ndvi:e.img_ndvi, ndmi:e.img_ndmi, ndre:e.img_ndre, rgb:e.img_rgb}
+      })),
+      ignorados, contexto, relevo, clima, mediaPeriodo, pilha, zonas:null, silagem:null
+    };
+    res.zonas = calcularZonas(res, opcoesZonas());
+    return res;
+  }
+}
+
+function resumoUltimo(res){
+  const u = res.meses[res.meses.length-1];
+  if (window.aoAnalisar) try{ window.aoAnalisar(res); }catch(e){ console.warn(e); }
+  return {data:u.data, ndvi:u.ndvi.media, ndmi:u.ndmi.media, ndre:u.ndre ? u.ndre.media : null, processadoEm:new Date().toISOString()};
+}
+
+// ============================================================================
+// Silagem de milho: série densa + pico do NDVI + graus-dia
+// ============================================================================
+async function analisarSilagem(){
+  const r = estado.resultado; if (!r) return;
+  const btn = $("btnSilagem"); btn.disabled = true;
+  const box = $("silagemRes"); box.innerHTML = '<p class="hint">Buscando todas as imagens limpas do período… isso leva de 20 a 60 segundos.</p>';
+  try{
+    const feat = {type:"Feature", properties:{}, geometry:r.geom};
+    const cenas = await buscarCenas(r.geom, r.ini, r.fim);
+    const porDia = {}; // uma cena por data (a menos nublada)
+    for (const c of cenas){ const d = c.properties.datetime.slice(0,10); if (!porDia[d] || porDia[d].properties["eo:cloud_cover"] > c.properties["eo:cloud_cover"]) porDia[d] = c; }
+    const lista = Object.keys(porDia).sort().map(d => ({d, item:porDia[d]}));
+    let feitos = 0;
+    await pool(lista, 5, async x => {
+      try{
+        x.av = await avaliarNuvem(x.item, feat, r.areaHa);
+        if (x.av.cobertura >= 0.9 && x.av.nuvem <= Math.max(r.maxNuvem, 0.15)){
+          const [a, b] = await Promise.all([estatistica(x.item, feat, "ndvi"), estatistica(x.item, feat, "ndmi")]);
+          x.ndvi = a.media; x.ndmi = b.media;
+        }
+      }catch(e){}
+      feitos++; box.innerHTML = `<p class="hint">Analisando imagens: ${feitos} de ${lista.length}…</p>`;
+    });
+    const serie = lista.filter(x => x.ndvi != null).map(x => ({d:x.d, ndvi:x.ndvi, ndmi:x.ndmi}));
+    if (serie.length < 4) throw new Error("Poucas imagens limpas no período para analisar a curva (mínimo 4).");
+    const suave = serie.map((s, i) => { const v = [serie[Math.max(0,i-1)].ndvi, s.ndvi, serie[Math.min(serie.length-1,i+1)].ndvi].sort((a,b)=>a-b); return v[1]; });
+    let ip = 0; suave.forEach((v, i) => { if (v > suave[ip]) ip = i; });
+    const pico = serie[ip], picoV = suave[ip];
+    const ultimo = serie[serie.length-1], quedaUlt = picoV - suave[suave.length-1];
+    const minAntes = Math.min(...suave.slice(0, ip+1)), amplitude = picoV - minAntes;
+    const res = {serie, suave, pico:{d:pico.d, ndvi:picoV}, ultimo, quedaUlt, minAntes, amplitude};
+    // curva típica de lavoura: sobe do solo/palhada até um pico alto (pastagem perene não tem esse formato)
+    if (picoV < 0.65 || amplitude < 0.3) res.situacao = "baixo";
+    else if (ip >= serie.length-1 || (difDias(pico.d, ultimo.d) < 10 && quedaUlt < 0.03)) res.situacao = "antes";
+    else res.situacao = "pos";
+    const cl = r.clima;
+    if (res.situacao !== "baixo"){
+      let gd = 0, dIni = null, dFim = null, ultimoCl = null;
+      const dd = cl ? cl.diario.filter(x => x.d > pico.d) : [];
+      for (const x of dd){
+        gd += grausDia(x); ultimoCl = x.d;
+        if (!dIni && gd >= GD_INI) dIni = x.d;
+        if (!dFim && gd >= GD_FIM){ dFim = x.d; break; }
+      }
+      res.gdAcum = gd; res.gdAte = ultimoCl;
+      if (cl && dd.length){
+        const ult14 = cl.diario.slice(-14), gdDia = ult14.reduce((a, x) => a + grausDia(x), 0)/Math.max(1, ult14.length);
+        res.gdDia = gdDia;
+        if (!dIni || !dFim){ // projeção com o ritmo dos últimos 14 dias
+          let g = gd, d = ultimoCl || pico.d;
+          for (let k=0; k<200 && (!dIni || !dFim) && gdDia > 0.5; k++){
+            d = somaDias(d, 1); g += gdDia;
+            if (!dIni && g >= GD_INI){ dIni = d; res.iniProj = true; }
+            if (!dFim && g >= GD_FIM){ dFim = d; res.fimProj = true; }
+          }
+        }
+        res.janela = dIni && dFim ? [dIni, dFim] : null;
+        res.metodo = "gd";
+      } else {
+        res.janela = [somaDias(pico.d, 45), somaDias(pico.d, 60)]; res.metodo = "dias"; res.iniProj = res.fimProj = true;
+      }
+    }
+    const t = r.talhaoId ? talhoes.find(x => x.id === r.talhaoId) : null;
+    const plantios = t ? t.diario.filter(e => e.tipo === "plantio" && e.data <= pico.d).sort((a,b) => b.data.localeCompare(a.data)) : [];
+    if (plantios.length) res.plantio = plantios[0].data;
+    r.silagem = res;
+    mostrarSilagem();
+    if (r.talhaoId && typeof salvarRelatorio === "function") salvarRelatorio(r).catch(() => {});
+  }catch(e){
+    console.error(e); box.innerHTML = `<p class="hint" style="color:var(--red)">Erro: ${esc(e.message || e)}</p>`;
+  }finally{ btn.disabled = false; }
+}
+
+function textoSilagem(s){
+  const hoje = hojeISO();
+  if (s.situacao === "baixo") return {titulo:"A curva não parece de uma lavoura de milho", txt:`O NDVI foi de ${fmt(s.minAntes)} até um máximo de ${fmt(s.pico.ndvi)} em ${fmtData(s.pico.d)} (subida de ${fmt(s.amplitude)}).<br>No milho, o NDVI costuma subir de ~0,2–0,3 (solo/palhada no plantio) até mais de 0,7–0,8 no pendoamento. Pastagens perenes não têm esse formato.<br>Se o talhão é de milho, escolha um período que comece antes do plantio e cubra o ciclo todo.`};
+  const linhas = [];
+  linhas.push(`Pico do NDVI em <b>${fmtData(s.pico.d)}</b> (${fmt(s.pico.ndvi)}), que costuma coincidir com o pendoamento/florescimento.`);
+  if (s.plantio) linhas.push(`Plantio registrado no diário em ${fmtData(s.plantio)}: o pico ocorreu ${difDias(s.plantio, s.pico.d)} dias após o plantio.`);
+  if (s.situacao === "antes") linhas.push(`A lavoura <b>ainda está no pico ou antes dele</b> (última imagem limpa em ${fmtData(s.ultimo.d)}). A estimativa pode mudar quando o NDVI começar a cair.`);
+  else linhas.push(`Desde o pico o NDVI caiu ${fmt(s.quedaUlt)} (última imagem limpa em ${fmtData(s.ultimo.d)}: NDVI ${fmt(s.ultimo.ndvi)}, NDMI ${fmt(s.ultimo.ndmi)}).`);
+  if (s.metodo === "gd") linhas.push(`Graus-dia acumulados desde o pico: <b>${fmt(s.gdAcum,0)} °C·dia</b> até ${fmtData(s.gdAte)} (base 10 °C).` + (s.gdDia ? ` Ritmo recente: ${fmt(s.gdDia,1)} °C·dia por dia.` : ""));
+  else linhas.push("Sem dados de temperatura: janela estimada como 45 a 60 dias após o pico.");
+  let titulo = "Janela estimada de colheita";
+  if (s.janela){
+    const [a, b] = s.janela;
+    const status = hoje < a ? `faltam ${difDias(hoje, a)} dias para o início` : hoje <= b ? "<b>a janela está aberta agora</b>" : `a janela terminou há ${difDias(b, hoje)} dias`;
+    titulo = `Janela estimada de colheita: ${fmtData(a)} a ${fmtData(b)}`;
+    linhas.push(`Hoje (${fmtData(hoje)}): ${status}.` + (s.iniProj || s.fimProj ? " Parte da janela foi projetada com o ritmo recente de temperatura." : ""));
+  }
+  linhas.push(`Referência: ${GD_INI}–${GD_FIM} °C·dia após o florescimento ≈ 1/3 a 2/3 da linha do leite (≈ 30–35% de MS). Varia com o híbrido: confirme no campo pela linha do leite e pela matéria seca da planta inteira.`);
+  return {titulo, txt:linhas.join("<br>")};
+}
+
+function mostrarSilagem(){
+  const r = estado.resultado, s = r && r.silagem; if (!s) return;
+  const box = $("silagemRes"); box.innerHTML = "";
+  const t = textoSilagem(s);
+  box.insertAdjacentHTML("beforeend", `<div class="caixa"><b>${t.titulo}</b><br>${t.txt}</div>`);
+  const cv = document.createElement("canvas"); cv.className = "chart"; cv.style.marginTop = "12px";
+  box.appendChild(cv);
+  requestAnimationFrame(() => desenharSilagem(cv, r, Math.max(320, box.clientWidth), 260));
+}
+
+function desenharSilagem(cv, r, W, H, paraPdf=false){ CV = coresCanvas(paraPdf);
+  const s = r.silagem, dpr = paraPdf ? 1 : (window.devicePixelRatio || 1);
+  cv.width = W*dpr; cv.height = H*dpr;
+  const x = cv.getContext("2d"); x.setTransform(dpr,0,0,dpr,0,0);
+  x.fillStyle = CV.bg; x.fillRect(0,0,W,H);
+  const m = {l:46, r:20, t:26, b:30}, pw = W-m.l-m.r, ph = H-m.t-m.b;
+  const t0 = msData(s.serie[0].d);
+  let t1 = msData(r.fim);
+  if (s.janela) t1 = Math.max(t1, msData(s.janela[1]) + 5*864e5);
+  const X = d => m.l + (msData(d)-t0)/(t1-t0)*pw;
+  const vals = s.serie.flatMap(p => [p.ndvi, p.ndmi]);
+  const lo = Math.floor((Math.min(...vals)-0.05)*10)/10, hi = Math.ceil((Math.max(...vals)+0.05)*10)/10;
+  const Y = v => m.t + (hi-v)/(hi-lo)*ph;
+  x.font = "12px Segoe UI, Arial, sans-serif";
+  if (s.janela){
+    x.fillStyle = "rgba(212,160,23,.18)"; x.fillRect(X(s.janela[0]), m.t, X(s.janela[1])-X(s.janela[0]), ph);
+    x.fillStyle = "#7a5300"; x.textAlign = "center"; x.textBaseline = "bottom";
+    x.fillText("janela de colheita", (X(s.janela[0])+X(s.janela[1]))/2, m.t-2);
+  }
+  x.textBaseline = "middle";
+  for (let v = lo; v <= hi+1e-9; v += 0.1){
+    x.strokeStyle = Math.abs(v) < 1e-9 ? CV.zero : CV.grid; x.lineWidth = 1;
+    x.beginPath(); x.moveTo(m.l, Y(v)); x.lineTo(W-m.r, Y(v)); x.stroke();
+    x.fillStyle = CV.txt; x.textAlign = "right"; x.fillText(fmt(v,1), m.l-6, Y(v));
+  }
+  marcasMes(x, t0, t1, m.l, pw, H-m.b+6);
+  const hj = hojeISO();
+  if (msData(hj) >= t0 && msData(hj) <= t1){
+    const px = X(hj), perto = px > W - m.r - 36;
+    x.strokeStyle = CV.forte; x.setLineDash([3,3]); x.beginPath(); x.moveTo(px, m.t); x.lineTo(px, m.t+ph); x.stroke(); x.setLineDash([]);
+    x.fillStyle = CV.forte; x.textAlign = perto ? "right" : "left"; x.textBaseline = "top"; x.fillText("hoje", perto ? px-3 : px+3, m.t+2);
+  }
+  const linha = (k, cor) => { x.strokeStyle = cor; x.lineWidth = 2; x.beginPath(); s.serie.forEach((p, i) => i ? x.lineTo(X(p.d), Y(p[k])) : x.moveTo(X(p.d), Y(p[k]))); x.stroke();
+    x.fillStyle = cor; s.serie.forEach(p => { x.beginPath(); x.arc(X(p.d), Y(p[k]), 3, 0, 7); x.fill(); }); };
+  linha("ndvi", INDICES.ndvi.cor); linha("ndmi", INDICES.ndmi.cor);
+  // eventos do diário
+  for (const ev of eventosNoPeriodo(r)){
+    if (msData(ev.data) < t0) continue;
+    const tp = TIPOS[ev.tipo] || TIPOS.outro, px = X(ev.data);
+    x.strokeStyle = tp.cor; x.setLineDash([4,3]); x.beginPath(); x.moveTo(px, m.t+8); x.lineTo(px, m.t+ph); x.stroke(); x.setLineDash([]);
+    x.fillStyle = tp.cor; x.beginPath(); x.arc(px, m.t+1, 7, 0, 7); x.fill();
+    x.fillStyle = "#fff"; x.font = "700 9px Segoe UI, Arial, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(tp.sig, px, m.t+1.5);
+    x.font = "12px Segoe UI, Arial, sans-serif";
+  }
+  x.strokeStyle = CV.forte; x.lineWidth = 2; x.beginPath(); x.arc(X(s.pico.d), Y(s.pico.ndvi), 7, 0, 7); x.stroke();
+  x.textAlign = "left"; x.textBaseline = "middle"; x.font = "600 12px Segoe UI, Arial, sans-serif";
+  x.fillStyle = INDICES.ndvi.cor; x.fillRect(m.l, 9, 14, 3); x.fillText("NDVI", m.l+20, 11);
+  x.fillStyle = INDICES.ndmi.cor; x.fillRect(m.l+70, 9, 14, 3); x.fillText("NDMI", m.l+90, 11);
+  x.fillStyle = CV.forte; x.fillText("○ pico", m.l+140, 11);
+}
+
+// ============================================================================
+// Exibição
+// ============================================================================
+function limparResultado(){
+  estado.resultado = null;
+  if (estado.lote){ estado.lote = null; renderLote(); }
+  if (estado.overlay){ mapa.removeLayer(estado.overlay); estado.overlay = null; }
+  $("resultados").style.display = "none";
+  $("btnPdf").style.display = "none";
+  $("legMapa").style.display = "none";
+  $("silagemRes").innerHTML = "";
+  const sel = $("selMes"); sel.innerHTML = "<option>— sem imagens —</option>"; sel.disabled = true;
+}
+
+function pintarLegenda(cv, lut){
+  const x = cv.getContext("2d"), w = cv.width, h = cv.height;
+  for (let i=0; i<w; i++){ const v = Math.round(i/(w-1)*255); x.fillStyle = `rgb(${lut[v*3]},${lut[v*3+1]},${lut[v*3+2]})`; x.fillRect(i, 0, 1, h); }
+}
+
+function mostrarResultado(novo){
+  const r = estado.resultado; if (!r) return;
+  $("resultados").style.display = "flex";
+
+  const sel = $("selMes"); sel.innerHTML = "";
+  r.meses.forEach((m, i) => { const o = document.createElement("option"); o.value = i; o.textContent = `${m.data} · nuvem ${fmt(m.nuvem*100,0)}%`; sel.appendChild(o); });
+  const om = document.createElement("option"); om.value = -1; om.textContent = `Média do período (${r.meses.length} meses)`; sel.appendChild(om);
+  sel.disabled = false;
+  if (novo) estado.mesIdx = r.meses.length-1;
+  sel.value = estado.mesIdx;
+  atualizarOverlay();
+
+  // KPIs
+  const u = r.meses[r.meses.length-1], p = r.meses.length > 1 ? r.meses[r.meses.length-2] : null;
+  const delta = (a, b) => b == null ? "" : `<div class="d ${a>=b?"up":"down"}">${a>=b?"▲":"▼"} ${fmt(Math.abs(a-b))} vs ${p.data}</div>`;
+  $("kpis").innerHTML = `
+    <div class="kpi"><div class="t">Talhão</div><div class="v" style="font-size:16px">${esc(r.nome)}</div><div class="d" style="color:var(--muted)">${fmt(r.areaHa,1)} ha</div></div>
+    <div class="kpi"><div class="t">Última imagem limpa</div><div class="v">${u.data}</div><div class="d" style="color:var(--muted)">nuvem no talhão: ${fmt(u.nuvem*100,0)}%</div></div>
+    ${IDX.map(ind => `<div class="kpi"><div class="t">${INDICES[ind].sigla} médio (${INDICES[ind].nome})</div><div class="v" style="color:${INDICES[ind].corTx}">${fmt(u[ind].media)}</div>${delta(u[ind].media, p && p[ind].media)}</div>`).join("")}
+    ${r.clima ? `<div class="kpi"><div class="t">Chuva no período</div><div class="v" style="color:#1f6fb0">${fmt(r.clima.chuvaTotal,0)} mm</div><div class="d" style="color:var(--muted)">temp. média ${fmt(r.clima.tempMedia,1)} °C</div></div>` : ""}`;
+
+  redesenharGrafico();
+
+  // mapa médio
+  for (const ind of IDX){
+    const box = $("media" + ind[0].toUpperCase() + ind.slice(1)); box.innerHTML = "";
+    const mm = r.mediaPeriodo[ind]; if (!mm) continue;
+    box.innerHTML = `<div class="dt" style="color:${INDICES[ind].corTx}">${INDICES[ind].sigla} médio (${INDICES[ind].nome}) · ${fmt(mm.media)}</div>`;
+    box.appendChild(renderCelula(mm.img, r, 420, "#000"));
+    const lg = document.createElement("div"); lg.className = "legenda"; lg.style.margin = "4px 0 6px";
+    lg.innerHTML = `<span>${fmt(mm.faixa[0])}</span><canvas width="400" height="12"></canvas><span>${fmt(mm.faixa[1])}</span>`;
+    pintarLegenda(lg.querySelector("canvas"), LUTS[ind]);
+    box.appendChild(lg);
+    box.insertAdjacentHTML("beforeend", `<div class="zonasm">
+      <span>Abaixo da média<b>${fmt(mm.pAbaixo*100,0)}%</b></span>
+      <span>Na média (±${fmt(mm.tol)})<b>${fmt(mm.pMedia*100,0)}%</b></span>
+      <span>Acima<b>${fmt(mm.pAcima*100,0)}%</b></span></div>`);
+    box.style.cursor = "pointer"; box.title = "Ver no mapa";
+    box.onclick = () => { estado.mesIdx = -1; estado.camada = ind; $("selMes").value = -1; marcarSeg(); atualizarOverlay(); $("mapa").scrollIntoView({behavior:"smooth", block:"center"}); };
+  }
+
+  mostrarZonas();
+
+  // grades mensais
+  for (const ind of [...IDX, "rgb"]){
+    const Ind = ind[0].toUpperCase() + ind.slice(1);
+    if (ind !== "rgb"){
+      pintarLegenda($("lg"+Ind), LUTS[ind]);
+      $("lg"+Ind+"Min").textContent = fmt(r.faixas[ind][0]); $("lg"+Ind+"Max").textContent = fmt(r.faixas[ind][1]);
+    }
+    const g = $("grid"+Ind); g.innerHTML = "";
+    r.meses.forEach((m, i) => {
+      const cel = document.createElement("div"); cel.className = "cel";
+      cel.innerHTML = `<div class="dt">${m.data}</div>`;
+      cel.appendChild(renderCelula(m.img[ind], r, 340, ind === "rgb" ? "#ff1e1e" : "#000"));
+      cel.insertAdjacentHTML("beforeend", ind === "rgb"
+        ? `<div class="mv">nuvem no talhão ${fmt(m.nuvem*100,0)}%</div>`
+        : `<div class="mv">média ${fmt(m[ind].media)} · nuvem ${fmt(m.nuvem*100,0)}%</div>`);
+      cel.style.cursor = "pointer"; cel.title = "Ver no mapa";
+      cel.onclick = () => { estado.mesIdx = i; estado.camada = ind; $("selMes").value = i; marcarSeg(); atualizarOverlay(); $("mapa").scrollIntoView({behavior:"smooth", block:"center"}); };
+      g.appendChild(cel);
+    });
+  }
+
+  // relevo
+  const rel = r.relevo;
+  $("cardRelevo").style.display = rel ? "" : "none";
+  if (rel){
+    const box = $("relevoImg"); box.innerHTML = "";
+    box.appendChild(renderCelula(rel.img, r, 560, "#000", 2, r.bbox, null, true));
+    pintarLegenda($("lgRel"), LUTS.relevo);
+    $("lgRelMin").textContent = `${fmt(rel.min,0)} m`; $("lgRelMax").textContent = `${fmt(rel.max,0)} m`;
+    $("relevoStats").innerHTML = `<div class="relstats">
+      <div>Altitude mínima<b>${fmt(rel.min,0)} m</b></div><div>Altitude máxima<b>${fmt(rel.max,0)} m</b></div>
+      <div>Altitude média<b>${fmt(rel.media,0)} m</b></div><div>Desnível no talhão<b>${fmt(rel.max-rel.min,0)} m</b></div>
+      <div>Declividade média<b>${fmt(rel.declMedia,1)}%</b></div><div>Declividade máxima<b>${fmt(rel.declMax,1)}%</b></div></div>`;
+  }
+  $("ignorados").textContent = r.ignorados.length
+    ? `Meses sem imagem limpa sobre o talhão (ignorados): ${r.ignorados.map(nomeMes).join(", ")}.` : "";
+  if (r.silagem) mostrarSilagem(); else $("silagemRes").innerHTML = "";
+  if (window.aposMostrar) try{ window.aposMostrar(r); }catch(e){ console.warn(e); }
+}
+
+function textoMetodoZonas(zn){
+  const vars = ["NDVI","NDMI","NDRE"].filter(v => zn.variaveis.includes(v.toLowerCase())).join(", ") + (zn.usaRelevo ? " e altitude" : "");
+  return `Zonas calculadas com todas as ${zn.meses} imagens limpas do período. Em cada data, o valor de cada pixel é comparado com a média do talhão naquela data; a posição média de cada pixel (sempre acima ou sempre abaixo) em ${vars} entra num agrupamento k-means multivariado (12 reinícios, descartando divisões com zona menor que 5% da área). Manchas menores que ${fmt(zn.minHa,2)} ha foram incorporadas à zona vizinha. A zona "${ZONAS_NOMES[zn.n][0]}" é a de pior desempenho relativo de NDVI + NDRE.`;
+}
+function mostrarZonas(){
+  const r = estado.resultado, zn = r && r.zonas;
+  $("cardZonas").style.display = r ? "" : "none";
+  $("zonaRelevo").disabled = !(r && r.relevo);
+  if (!zn){ $("zonasImg").innerHTML = '<p class="hint">Não há pixels suficientes para gerar as zonas.</p>'; $("zonasTab").innerHTML = ""; $("zonaQual").innerHTML = ""; $("zonaMetodo").textContent = ""; return; }
+  const box = $("zonasImg"); box.innerHTML = "";
+  box.appendChild(renderCelula(zn.img, r, 520, "#000"));
+  const q = zn.qualidade;
+  $("zonaQual").innerHTML = `<b>Qualidade da divisão:</b> as zonas explicam ${fmt(q.ndvi*100,0)}% da variação do NDVI relativo` +
+    (q.ndre != null ? `, ${fmt(q.ndre*100,0)}% do NDRE` : "") + (q.ndmi != null ? ` e ${fmt(q.ndmi*100,0)}% do NDMI` : "") +
+    (zn.usaRelevo && q.alt != null ? ` (altitude: ${fmt(q.alt*100,0)}%)` : "") + ". Acima de ~50% indica zonas bem separadas.";
+  const rel = !!r.relevo;
+  const zs = []; for (let z=zn.n; z>=1; z--) zs.push(z);
+  $("zonasTab").innerHTML = `<tr><th>Zona</th><th class="n">Área</th><th class="n">%</th><th class="n">NDVI</th><th class="n">NDMI</th><th class="n">NDRE</th>${rel ? '<th class="n">Alt.</th><th class="n">Decl.</th>' : ""}<th class="n" title="Em quantos % das datas os pixels da zona ficaram abaixo da média do talhão (NDVI)">Abaixo da média</th></tr>` +
+    zs.map(z => { const s = zn.stats[z]; return `<tr><td><span class="sw" style="background:${zonaCor(zn, z)}"></span>${zonaNome(zn, z)}</td>
+      <td class="n">${fmt(s.area,1)} ha</td><td class="n">${fmt(s.frac*100,0)}%</td><td class="n">${fmt(s.ndvi)}</td><td class="n">${fmt(s.ndmi)}</td><td class="n">${fmt(s.ndre)}</td>${rel ? `<td class="n">${fmt(s.alt,0)} m</td><td class="n">${fmt(s.decl,1)}%</td>` : ""}<td class="n">${s.abaixo == null ? "—" : fmt(s.abaixo*100,0) + "% das datas"}</td></tr>`; }).join("");
+  $("zonaMetodo").innerHTML = esc(textoMetodoZonas(zn)) + ' O arquivo exportado traz o campo <b>TAXA</b> vazio para você preencher a dose de cada zona no software do monitor/controlador. Coordenadas em WGS84 (EPSG:4326).';
+}
+
+// Desenha a imagem respeitando a proporção real (corrige a latitude) + contorno
+function renderCelula(img, r, tam, cor, largura=2, bbox=r.bbox, fundo=null, suave=false){
+  const [x0,y0,x1,y1] = bbox, latc = (y0+y1)/2*Math.PI/180;
+  const asp = ((x1-x0)*Math.cos(latc))/(y1-y0);
+  const w = asp >= 1 ? tam : Math.round(tam*asp), h = asp >= 1 ? Math.round(tam/asp) : tam;
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const x = c.getContext("2d"); x.imageSmoothingEnabled = suave; x.imageSmoothingQuality = "high";
+  if (fundo){ x.fillStyle = fundo; x.fillRect(0, 0, w, h); }
+  x.drawImage(img, 0, 0, w, h);
+  x.strokeStyle = cor; x.lineWidth = largura; x.lineJoin = "round";
+  const aneis = r.geom.type === "Polygon" ? r.geom.coordinates : r.geom.coordinates.flat();
+  for (const anel of aneis){
+    x.beginPath();
+    anel.forEach(([lon,lat], i) => { const px = (lon-x0)/(x1-x0)*w, py = (y1-lat)/(y1-y0)*h; i ? x.lineTo(px,py) : x.moveTo(px,py); });
+    x.closePath(); x.stroke();
+  }
+  return c;
+}
+
+// Cores dos gráficos (o PDF é sempre claro)
+const CORES_CLARO = {bg:"#fff", txt:"#5f6d61", grid:"#e6ebe4", grid2:"#eef1ec", zero:"#9aa59c", forte:"#333"};
+const CORES_ESCURO = {bg:"#16201a", txt:"#a9b8ac", grid:"#26332a", grid2:"#1f2a22", zero:"#55665a", forte:"#e8efe9"};
+let CV = CORES_CLARO;
+function coresCanvas(paraPdf){ return !paraPdf && document.documentElement.dataset.tema === "escuro" ? CORES_ESCURO : CORES_CLARO; }
+
+// ---------------- Gráfico: índices + clima + eventos do diário ----------------
+function redesenharGrafico(){
+  requestAnimationFrame(() => {
+    const r = estado.resultado, cv = $("chart"); if (!r) return;
+    desenharGrafico(cv, r, Math.max(320, cv.parentElement.clientWidth - 28), r.clima ? 400 : 290);
+    const evs = eventosNoPeriodo(r);
+    const usados = [...new Set(evs.map(e => e.tipo))];
+    $("evLegenda").innerHTML = evs.length
+      ? "<span>Diário no período:</span>" + usados.map(k => { const tp = TIPOS[k]||TIPOS.outro; return `<span><i style="background:${tp.cor}">${tp.sig}</i>${tp.nome} (${evs.filter(e => e.tipo === k).length})</span>`; }).join("")
+      : (r.talhaoId ? "<span>Nenhum registro do diário neste período.</span>" : "<span>Salve o talhão para mostrar o diário de manejo no gráfico.</span>");
+    $("climaNota").textContent = r.clima ? `Clima: Open-Meteo (reanálise ERA5) no centro do talhão, dados até ${fmtData(r.clima.ultimoDia)}.` : "Clima indisponível para este período.";
+  });
+}
+
+function marcasMes(x, t0, t1, l, pw, y){
+  x.fillStyle = CV.txt; x.textAlign = "center"; x.textBaseline = "top"; x.font = "12px Segoe UI, Arial, sans-serif";
+  const d = new Date(t0); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth()+1);
+  const nMeses = Math.max(1, (t1-t0)/(30*864e5)), passo = Math.ceil(nMeses/Math.max(1, Math.floor(pw/60)));
+  let k = 0;
+  while (d.getTime() <= t1){
+    const px = l + (d.getTime()-t0)/(t1-t0)*pw;
+    if (k % passo === 0) x.fillText(`${MESES[d.getUTCMonth()]}/${String(d.getUTCFullYear()).slice(2)}`, px, y);
+    d.setUTCMonth(d.getUTCMonth()+1); k++;
+  }
+}
+
+function desenharGrafico(cv, r, W, H, paraPdf=false){ CV = coresCanvas(paraPdf);
+  const dpr = paraPdf ? 1 : (window.devicePixelRatio || 1);
+  cv.width = W*dpr; cv.height = H*dpr;
+  const x = cv.getContext("2d"); x.setTransform(dpr,0,0,dpr,0,0);
+  x.clearRect(0,0,W,H); x.fillStyle = CV.bg; x.fillRect(0,0,W,H);
+  const temClima = !!r.clima;
+  const m = {l:48, r:temClima ? 46 : 20, t:30, b:28};
+  const pw = W-m.l-m.r, gap = 18;
+  const phTot = H-m.t-m.b;
+  const ph1 = temClima ? Math.round(phTot*0.6) : phTot, ph2 = temClima ? phTot-ph1-gap : 0;
+  const top2 = m.t + ph1 + gap;
+  const t0 = msData(r.ini), t1 = msData(r.fim) + 864e5;
+  const X = t => m.l + (t-t0)/(t1-t0)*pw;
+  x.font = "12px Segoe UI, Arial, sans-serif";
+
+  const d = new Date(t0); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth()+1);
+  x.strokeStyle = CV.grid2; x.lineWidth = 1;
+  while (d.getTime() <= t1){ const px = X(d.getTime()); x.beginPath(); x.moveTo(px, m.t); x.lineTo(px, m.t+phTot); x.stroke(); d.setUTCMonth(d.getUTCMonth()+1); }
+
+  // painel 1: índices
+  const ap = r.anoPassado || [];
+  const vals = r.meses.flatMap(k => IDX.map(ind => k[ind].media)).concat(ap.map(p => p.ndvi));
+  const lo = Math.floor((Math.min(...vals)-0.05)*10)/10, hi = Math.ceil((Math.max(...vals)+0.05)*10)/10;
+  const Y = v => m.t + (hi-v)/(hi-lo)*ph1;
+  x.textBaseline = "middle";
+  for (let v = lo; v <= hi+1e-9; v += 0.1){
+    x.strokeStyle = Math.abs(v) < 1e-9 ? CV.zero : CV.grid; x.lineWidth = 1;
+    x.beginPath(); x.moveTo(m.l, Y(v)); x.lineTo(W-m.r, Y(v)); x.stroke();
+    x.fillStyle = CV.txt; x.textAlign = "right"; x.fillText(fmt(v,1), m.l-6, Y(v));
+  }
+  if (ap.length){ // NDVI do mesmo período do ano anterior (deslocado 1 ano)
+    x.strokeStyle = "#8fd19e"; x.lineWidth = 2; x.setLineDash([6,4]); x.beginPath();
+    ap.forEach((p, i) => { const px = X(msData(p.iso)), py = Y(p.ndvi); i ? x.lineTo(px, py) : x.moveTo(px, py); }); x.stroke(); x.setLineDash([]);
+    x.fillStyle = "#8fd19e"; ap.forEach(p => { x.beginPath(); x.arc(X(msData(p.iso)), Y(p.ndvi), 3, 0, 7); x.fill(); });
+  }
+  for (const ind of IDX){
+    const cor = INDICES[ind].cor;
+    x.strokeStyle = cor; x.lineWidth = 2.5; x.beginPath();
+    r.meses.forEach((k, i) => { const px = X(msData(k.iso)), py = Y(k[ind].media); i ? x.lineTo(px, py) : x.moveTo(px, py); }); x.stroke();
+    x.fillStyle = cor; r.meses.forEach(k => { x.beginPath(); x.arc(X(msData(k.iso)), Y(k[ind].media), 3.5, 0, 7); x.fill(); });
+  }
+
+  // painel 2: chuva (barras mensais) e temperatura média (linha)
+  if (temClima){
+    const cl = r.clima.mensal;
+    const maxC = Math.max(10, ...cl.map(c => c.chuva)), topoC = Math.ceil(maxC*1.15/25)*25;
+    const temps = cl.map(c => c.temp).filter(v => v != null);
+    let tLo = Math.floor((Math.min(...temps)-2)/5)*5, tHi = Math.ceil((Math.max(...temps)+2)/5)*5; if (!(tHi > tLo)){ tLo = 0; tHi = 30; }
+    const YC = v => top2 + ph2 - v/topoC*ph2, YT = v => top2 + ph2 - (v-tLo)/(tHi-tLo)*ph2;
+    x.strokeStyle = CV.grid; x.beginPath(); x.moveTo(m.l, top2+ph2); x.lineTo(W-m.r, top2+ph2); x.stroke();
+    x.textBaseline = "middle"; x.font = "11px Segoe UI, Arial, sans-serif";
+    for (let k=0; k<=2; k++){
+      const v = topoC*k/2; x.fillStyle = "#1f6fb0"; x.textAlign = "right"; x.fillText(fmt(v,0), m.l-6, YC(v));
+      const tv = tLo + (tHi-tLo)*k/2; x.fillStyle = "#d35400"; x.textAlign = "left"; x.fillText(fmt(tv,0)+"°", W-m.r+6, YT(tv));
+      if (k){ x.strokeStyle = CV.grid2; x.beginPath(); x.moveTo(m.l, YC(v)); x.lineTo(W-m.r, YC(v)); x.stroke(); }
+    }
+    const meio = [];
+    for (const c of cl){
+      const [y, mo] = c.mes.split("-").map(Number);
+      const a = Math.max(t0, Date.UTC(y, mo-1, 1)), b = Math.min(t1, Date.UTC(y, mo, 1));
+      const xa = X(a)+2, xb = X(b)-2; if (xb <= xa) continue;
+      x.fillStyle = "rgba(31,111,176,.35)"; x.fillRect(xa, YC(c.chuva), xb-xa, top2+ph2-YC(c.chuva));
+      x.fillStyle = "#1f6fb0"; x.textAlign = "center"; x.textBaseline = "bottom";
+      if (xb-xa > 26) x.fillText(fmt(c.chuva,0), (xa+xb)/2, YC(c.chuva)-1);
+      if (c.temp != null) meio.push([(xa+xb)/2, YT(c.temp)]);
+    }
+    if (meio.length){
+      x.strokeStyle = "#d35400"; x.lineWidth = 2; x.beginPath(); meio.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.stroke();
+      x.fillStyle = "#d35400"; meio.forEach(([px, py]) => { x.beginPath(); x.arc(px, py, 3, 0, 7); x.fill(); });
+    }
+    x.font = "11px Segoe UI, Arial, sans-serif"; x.textBaseline = "top";
+    x.fillStyle = "#1f6fb0"; x.textAlign = "left"; x.fillText("Chuva (mm/mês)", m.l+4, top2+2);
+    x.fillStyle = "#d35400"; x.textAlign = "right"; x.fillText("Temp. média (°C)", W-m.r-4, top2+2);
+  }
+
+  // eventos do diário
+  const evs = eventosNoPeriodo(r);
+  for (const ev of evs){
+    const tp = TIPOS[ev.tipo] || TIPOS.outro, px = X(msData(ev.data));
+    x.strokeStyle = tp.cor; x.lineWidth = 1.3; x.setLineDash([4,3]);
+    x.beginPath(); x.moveTo(px, m.t+8); x.lineTo(px, m.t+phTot); x.stroke(); x.setLineDash([]);
+    x.fillStyle = tp.cor; x.beginPath(); x.arc(px, m.t+1, 8, 0, 7); x.fill();
+    x.fillStyle = "#fff"; x.font = "700 10px Segoe UI, Arial, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(tp.sig, px, m.t+1.5);
+  }
+
+  marcasMes(x, t0, t1, m.l, pw, H-m.b+8);
+
+  // legenda
+  x.textAlign = "left"; x.textBaseline = "middle"; x.font = "600 12px Segoe UI, Arial, sans-serif";
+  let lx = m.l; const ly = 10;
+  for (const ind of IDX){ x.fillStyle = INDICES[ind].cor; x.fillRect(lx, ly-1, 14, 3); x.fillText(INDICES[ind].sigla+" médio", lx+19, ly); lx += 108; }
+  if (ap.length){ x.fillStyle = "#5fb872"; x.fillRect(lx, ly-1, 5, 3); x.fillRect(lx+8, ly-1, 6, 3); x.fillText("NDVI ano anterior", lx+19, ly); lx += 140; }
+  if (evs.length){ x.fillStyle = CV.txt; x.font = "12px Segoe UI, Arial, sans-serif"; x.fillText("● eventos do diário", lx, ly); }
+}
+
+// ---------------- Mapa: camadas ----------------
+function marcarSeg(){ document.querySelectorAll("#segCamada button").forEach(b => b.classList.toggle("on", b.dataset.c === estado.camada)); }
+document.querySelectorAll("#segCamada button").forEach(b => b.onclick = () => { estado.camada = b.dataset.c; marcarSeg(); atualizarOverlay(); });
+$("selMes").onchange = e => { estado.mesIdx = +e.target.value; atualizarOverlay(); };
+$("opac").oninput = e => { if (estado.overlay) estado.overlay.setOpacity(+e.target.value); };
+
+function atualizarOverlay(){ atualizarOverlayBase(); if (window.uiAposOverlay) window.uiAposOverlay(); }
+function atualizarOverlayBase(){
+  if (estado.overlay){ mapa.removeLayer(estado.overlay); estado.overlay = null; }
+  const r = estado.resultado, leg = $("legMapa"), cam = estado.camada;
+  if (!r || cam === "nada"){ leg.style.display = "none"; return; }
+  let img = null, suave = false, legLut = null, legTxt = null;
+  if (cam === "relevo"){
+    if (!r.relevo){ leg.style.display = "none"; setStatus("Relevo indisponível para esta área.", true); return; }
+    img = r.relevo.img; suave = true; legLut = LUTS.relevo; legTxt = [`Altitude ${fmt(r.relevo.min,0)} m`, `${fmt(r.relevo.max,0)} m`];
+  } else if (cam === "zonas"){
+    if (!r.zonas){ leg.style.display = "none"; return; }
+    img = r.zonas.img;
+  } else {
+    const ehMedia = estado.mesIdx < 0;
+    const mm = ehMedia && cam !== "rgb" ? r.mediaPeriodo[cam] : null;
+    const m = ehMedia ? r.meses[r.meses.length-1] : r.meses[estado.mesIdx]; if (!m) return;
+    img = mm ? mm.img : m.img[cam];
+    if (cam !== "rgb"){
+      const fx = mm ? mm.faixa : r.faixas[cam];
+      legLut = LUTS[cam]; legTxt = [`${INDICES[cam].sigla}${mm ? " médio" : ""} ${fmt(fx[0])}`, fmt(fx[1])];
+    }
+  }
+  const [x0,y0,x1,y1] = r.bbox;
+  estado.overlay = L.imageOverlay(img.toDataURL("image/png"), [[y0,x0],[y1,x1]], {opacity:+$("opac").value, interactive:false, className: suave ? "suave" : ""}).addTo(mapa);
+  desenhados.eachLayer(l => l.bringToFront && l.bringToFront());
+  if (cam === "zonas"){
+    leg.style.display = "flex";
+    const zn = r.zonas, zs = []; for (let z=zn.n; z>=1; z--) zs.push(z);
+    leg.innerHTML = zs.map(z => `<span><span class="sw" style="background:${zonaCor(zn, z)}"></span>${zonaNome(zn, z)} (${fmt(zn.stats[z].frac*100,0)}%)</span>`).join(" ");
+    return;
+  }
+  if (!legLut){ leg.style.display = "none"; return; }
+  leg.style.display = "flex";
+  leg.innerHTML = `<span></span><canvas width="400" height="12"></canvas><span></span>`;
+  pintarLegenda(leg.querySelector("canvas"), legLut);
+  leg.children[0].textContent = legTxt[0]; leg.children[2].textContent = legTxt[1];
+}
+
+// ============================================================================
+// Laudo PDF
+// ============================================================================
+function gerarPdf(){
+  const r = estado.resultado; if (!r) return;
+  const {jsPDF} = window.jspdf;
+  const doc = new jsPDF({orientation:"landscape", unit:"mm", format:"a4", compress:true});
+  // a fonte padrão do PDF não tem alguns símbolos: troca por equivalentes
+  const limpa = t => typeof t === "string" ? t.replace(/≈/g, "~").replace(/≤/g, "<=").replace(/≥/g, ">=").replace(/→/g, "->").replace(/○/g, "o")
+    : Array.isArray(t) ? t.map(limpa) : t;
+  const _text = doc.text.bind(doc), _split = doc.splitTextToSize.bind(doc);
+  doc.text = (t, ...a) => _text(limpa(t), ...a);
+  doc.splitTextToSize = (t, ...a) => _split(limpa(t), ...a);
+  const W = 297, H = 210, M = 12;
+  const verde = [21,90,42], cinza = [95,109,97];
+  const u = r.meses[r.meses.length-1];
+  const emitido = new Date().toLocaleDateString("pt-BR");
+
+  const cabecalho = titulo => {
+    doc.setFillColor(...verde); doc.rect(0, 0, W, 16, "F");
+    doc.setTextColor(255); doc.setFont("helvetica","bold"); doc.setFontSize(14);
+    doc.text(titulo, M, 10.5);
+    doc.setFont("helvetica","normal"); doc.setFontSize(9);
+    doc.text(`${r.nome}  ·  Matheus Marin  ·  emitido em ${emitido}`, W-M, 10.5, {align:"right"});
+    doc.setTextColor(0);
+  };
+  const rodape = () => {
+    doc.setFontSize(7.5); doc.setTextColor(...cinza);
+    doc.text("Fonte: Sentinel-2 L2A (ESA/Copernicus) via Microsoft Planetary Computer; clima Open-Meteo (ERA5); relevo Copernicus DEM GLO-30. Índices com correção do deslocamento radiométrico.", M, H-6);
+    doc.setTextColor(0);
+  };
+  const legenda = (ind, x, y, w, faixa) => {
+    const fx = faixa || r.faixas[ind];
+    const cv = document.createElement("canvas"); cv.width = 400; cv.height = 12;
+    pintarLegenda(cv, LUTS[ind]);
+    doc.addImage(cv.toDataURL("image/png"), "PNG", x, y, w, 4);
+    doc.setFontSize(8); doc.setTextColor(...cinza);
+    const dec = ind === "relevo" ? 0 : 2, un = ind === "relevo" ? " m" : "";
+    doc.text(fmt(fx[0],dec)+un, x, y+8); doc.text(fmt((fx[0]+fx[1])/2,dec)+un, x+w/2, y+8, {align:"center"}); doc.text(fmt(fx[1],dec)+un, x+w, y+8, {align:"right"});
+    doc.setTextColor(0);
+  };
+  const tabela = (x, y, cols, larg, linhas, lh, fs) => {
+    const totW = larg.reduce((a, b) => a + b, 0);
+    doc.setFillColor(230,242,233); doc.rect(x, y-lh+1.5, totW, lh, "F");
+    doc.setFont("helvetica","bold"); doc.setFontSize(fs);
+    let cx = x; cols.forEach((c, i) => { doc.text(c, cx+1, y); cx += larg[i]; });
+    doc.setFont("helvetica","normal");
+    linhas.forEach((ln, i) => {
+      y += lh;
+      if (i % 2){ doc.setFillColor(247,249,246); doc.rect(x, y-lh+1.5, totW, lh, "F"); }
+      let cx2 = x; ln.forEach((t, k) => { doc.text(String(t), cx2+1, y, {maxWidth:larg[k]-2}); cx2 += larg[k]; });
+    });
+    return y;
+  };
+
+  // ---- 1: resumo + cor real ----
+  cabecalho("LAUDO DE MONITORAMENTO AGRÍCOLA");
+  doc.setFontSize(10);
+  const linhas = [
+    ["Talhão", r.nome], ["Área", `${fmt(r.areaHa,1)} ha`],
+    ["Período analisado", `${fmtData(r.ini)} a ${fmtData(r.fim)}`],
+    ["Última imagem limpa", `${u.data} (nuvem no talhão: ${fmt(u.nuvem*100,0)}%)`],
+    ["Índices (última)", `NDVI ${fmt(u.ndvi.media)} · NDMI ${fmt(u.ndmi.media)} · NDRE ${fmt(u.ndre.media)}`],
+  ];
+  if (r.clima) linhas.push(["Chuva no período", `${fmt(r.clima.chuvaTotal,0)} mm · temp. média ${fmt(r.clima.tempMedia,1)} °C`]);
+  linhas.push(["Meses analisados", String(r.meses.length)]);
+  let y = 26;
+  for (const [k, v] of linhas){
+    doc.setFont("helvetica","bold"); doc.setTextColor(...cinza); doc.text(k, M, y);
+    doc.setFont("helvetica","normal"); doc.setTextColor(0); doc.text(String(v), M+40, y, {maxWidth:88});
+    y += 6.3;
+  }
+  y += 3;
+  const n = r.meses.length, lh = Math.min(6, (H-20-y-12)/(n+1));
+  const chuvaMes = mes => { const c = r.clima && r.clima.mensal.find(q => q.mes === mes); return c ? fmt(c.chuva,0)+" mm" : "—"; };
+  tabela(M, y, ["Data","Nuvem","NDVI","NDMI","NDRE","Chuva mês"], [24,16,20,20,20,26],
+    r.meses.map(m => [m.data, fmt(m.nuvem*100,0)+"%", fmt(m.ndvi.media), fmt(m.ndmi.media), fmt(m.ndre.media), chuvaMes(m.mes)]), lh, Math.min(9, lh*1.6));
+  const boxX = 145, boxY = 22, boxW = W-M-boxX, boxH = H-22-16;
+  const cvRgb = r.contexto
+    ? renderCelula(r.contexto.img, r, 1000, "#ff1e1e", 4, r.contexto.bbox, "#fff")
+    : renderCelula(u.img.rgb, r, 1000, "#ff1e1e", 4, r.bbox, "#fff");
+  const esc1 = Math.min(boxW/cvRgb.width, boxH/cvRgb.height);
+  const iw = cvRgb.width*esc1, ih = cvRgb.height*esc1;
+  doc.addImage(cvRgb.toDataURL("image/jpeg", 0.92), "JPEG", boxX+(boxW-iw)/2, boxY, iw, ih);
+  doc.setFontSize(8.5); doc.setTextColor(...cinza);
+  doc.text(`Cor real – ${u.data}`, boxX+boxW/2, boxY+ih+5, {align:"center"});
+  doc.setTextColor(0);
+  rodape();
+
+  // ---- 2: gráfico + guia ----
+  doc.addPage(); cabecalho("EVOLUÇÃO DO TALHÃO, CLIMA E MANEJO");
+  const gW = 1100, gH = r.clima ? 520 : 400;
+  const cvG = document.createElement("canvas"); desenharGrafico(cvG, r, gW, gH, true);
+  const gwMM = W-2*M, ghMM = gwMM*gH/gW;
+  doc.addImage(cvG.toDataURL("image/jpeg", 0.92), "JPEG", M, 20, gwMM, ghMM);
+  let yg = 20 + ghMM + 5;
+  const evs = eventosNoPeriodo(r);
+  if (evs.length){
+    doc.setFontSize(8.5); doc.setTextColor(...cinza);
+    const usados = [...new Set(evs.map(e => e.tipo))].map(k => `${(TIPOS[k]||TIPOS.outro).sig} = ${(TIPOS[k]||TIPOS.outro).nome}`).join("   ");
+    doc.text("Eventos do diário: " + usados + "   (detalhes na página do diário)", M, yg); doc.setTextColor(0); yg += 6;
+  }
+  doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.text("Como ler os índices (referência geral)", M, yg);
+  doc.setFont("helvetica","normal"); doc.setFontSize(8.8);
+  const guia = [
+    "NDVI (vegetação): abaixo de 0,2 indica solo exposto, palhada ou pastagem muito rapada; 0,2 a 0,5 cobertura parcial, rebrote ou senescência; acima de 0,6 vegetação densa e vigorosa.",
+    "NDMI (umidade do dossel): valores negativos sugerem pouca água na vegetação ou solo exposto; 0 a 0,2 umidade moderada; acima de 0,2 dossel bem hidratado.",
+    "NDRE (clorofila / nitrogênio): satura menos que o NDVI em dosséis densos. Áreas e datas com NDRE relativamente mais baixo dentro do mesmo talhão podem indicar deficiência de N ou estresse; compare dentro do laudo.",
+    "Mapas usam escala de cores ajustada ao talhão (percentis 2%–98%). Para cada mês foi escolhida a imagem com menos nuvem e sombra dentro do talhão." + (r.ignorados.length ? ` Meses sem imagem limpa: ${r.ignorados.map(nomeMes).join(", ")}.` : "")
+  ];
+  yg += 5;
+  for (const g of guia){ const t = doc.splitTextToSize("•  " + g, W-2*M); doc.text(t, M, yg); yg += t.length*4 + 1.2; }
+  rodape();
+
+  // ---- 3: mapa médio ----
+  if (IDX.some(ind => r.mediaPeriodo[ind])){
+    doc.addPage(); cabecalho("MAPA MÉDIO DO PERÍODO");
+    doc.setFontSize(9); doc.setTextColor(...cinza);
+    doc.text(doc.splitTextToSize(`Média de cada pixel nos ${r.meses.length} meses analisados (${fmtData(r.ini)} a ${fmtData(r.fim)}). Mostra as zonas que ficam sempre acima ou abaixo da média do talhão. Cada mapa tem escala de cores própria.`, W-2*M), M, 23);
+    doc.setTextColor(0);
+    const colW = (W - 2*M - 16)/3, topo = 34, altMax = H - topo - 50;
+    IDX.forEach((ind, k) => {
+      const mm = r.mediaPeriodo[ind]; if (!mm) return;
+      const x0 = M + k*(colW+8);
+      doc.setFont("helvetica","bold"); doc.setFontSize(10.5);
+      doc.setTextColor(...hexRgb(INDICES[ind].corTx));
+      doc.text(`${INDICES[ind].sigla} médio (${INDICES[ind].nome}): ${fmt(mm.media)}`, x0 + colW/2, topo, {align:"center"});
+      doc.setTextColor(0);
+      const cv = renderCelula(mm.img, r, 600, "#000", 3, r.bbox, "#fff");
+      const e3 = Math.min(colW/cv.width, altMax/cv.height), iw3 = cv.width*e3, ih3 = cv.height*e3;
+      doc.addImage(cv.toDataURL("image/jpeg", 0.92), "JPEG", x0 + (colW-iw3)/2, topo+3, iw3, ih3);
+      const ly = topo + 3 + ih3 + 4;
+      legenda(ind, x0 + colW/2 - 40, ly, 80, mm.faixa);
+      doc.setFont("helvetica","normal"); doc.setFontSize(8.5);
+      doc.text(`Abaixo: ${fmt(mm.pAbaixo*100,0)}%  ·  Na média: ${fmt(mm.pMedia*100,0)}%  ·  Acima: ${fmt(mm.pAcima*100,0)}%`, x0 + colW/2, ly+15, {align:"center"});
+    });
+    rodape();
+  }
+
+  // ---- 4: zonas de manejo ----
+  if (r.zonas){
+    const zn = r.zonas, rel = !!r.relevo;
+    doc.addPage(); cabecalho("ZONAS DE MANEJO");
+    const cvZ = renderCelula(zn.img, r, 900, "#000", 3, r.bbox, "#fff");
+    const bW = 130, bH = H - 22 - 22, ez = Math.min(bW/cvZ.width, bH/cvZ.height);
+    doc.addImage(cvZ.toDataURL("image/jpeg", 0.92), "JPEG", M+(bW-cvZ.width*ez)/2, 22, cvZ.width*ez, cvZ.height*ez);
+    const xr = M + bW + 8; let yz = 28;
+    doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(`${zn.n} zonas · todas as datas e índices${zn.usaRelevo ? " + relevo" : ""}`, xr, yz); yz += 9;
+    const colsZ = ["Zona","Área","%","NDVI","NDMI","NDRE"].concat(rel ? ["Alt.","Decl."] : []).concat(["Abaixo*"]);
+    const largZ = rel ? [21,16,9,11,11,11,11,11,14] : [24,19,10,13,13,13,16];
+    const zs = []; for (let z=zn.n; z>=1; z--) zs.push(z);
+    const lnZ = zs.map(z => { const s = zn.stats[z]; return ["      "+zonaNome(zn, z), fmt(s.area,1)+" ha", fmt(s.frac*100,0)+"%", fmt(s.ndvi), fmt(s.ndmi), fmt(s.ndre)]
+      .concat(rel ? [fmt(s.alt,0)+" m", fmt(s.decl,1)+"%"] : []).concat([s.abaixo == null ? "—" : fmt(s.abaixo*100,0)+"%"]); });
+    const yAntes = yz;
+    yz = tabela(xr, yz, colsZ, largZ, lnZ, 7, 8.5);
+    zs.forEach((z, i) => { doc.setFillColor(...hexRgb(zonaCor(zn, z))); doc.rect(xr+1.2, yAntes + 7*(i+1) - 2.8, 3, 3, "F"); });
+    yz += 7; doc.setFontSize(8.5); doc.setTextColor(...cinza);
+    doc.text("* Abaixo: em quantos % das datas os pixels da zona ficaram abaixo da média do talhão (NDVI).", xr, yz); yz += 7;
+    const q = zn.qualidade;
+    doc.setTextColor(0); doc.setFont("helvetica","bold"); doc.setFontSize(9.5);
+    doc.text(doc.splitTextToSize(`Qualidade: as zonas explicam ${fmt(q.ndvi*100,0)}% da variação do NDVI relativo` + (q.ndre != null ? `, ${fmt(q.ndre*100,0)}% do NDRE` : "") + (q.ndmi != null ? ` e ${fmt(q.ndmi*100,0)}% do NDMI` : "") + ".", W-M-xr), xr, yz); yz += 10;
+    doc.setFont("helvetica","normal"); doc.setFontSize(8.8); doc.setTextColor(...cinza);
+    doc.text(doc.splitTextToSize(textoMetodoZonas(zn) + " As zonas podem ser exportadas pelo app em GeoJSON ou Shapefile (WGS84), com campo TAXA para a dose de cada zona.", W-M-xr), xr, yz);
+    doc.setTextColor(0);
+    rodape();
+  }
+
+  // ---- grades mensais ----
+  const titulos = {ndvi:"EVOLUÇÃO MENSAL – ÍNDICE DE VEGETAÇÃO (NDVI)", ndmi:"EVOLUÇÃO MENSAL – ÍNDICE DE UMIDADE (NDMI)", ndre:"EVOLUÇÃO MENSAL – CLOROFILA / NITROGÊNIO (NDRE)", rgb:"EVOLUÇÃO MENSAL – COR REAL (SATÉLITE)"};
+  for (const ind of [...IDX, "rgb"]){
+    doc.addPage();
+    cabecalho(titulos[ind]);
+    const areaY = 22, areaH = H - areaY - 26, areaW = W - 2*M;
+    const amostra = renderCelula(r.meses[0].img[ind], r, 100, "#000");
+    const asp = amostra.width/amostra.height;
+    let melhor = {c:1, s:0};
+    for (let c=1; c<=n; c++){
+      const l = Math.ceil(n/c), cw = areaW/c - 4, ch = areaH/l - 10;
+      const s = Math.min(cw, ch*asp);
+      if (s > melhor.s) melhor = {c, s};
+    }
+    const c = melhor.c, cw = areaW/c, ch = areaH/Math.ceil(n/c);
+    r.meses.forEach((m, i) => {
+      const cx = M + (i % c)*cw, cy = areaY + Math.floor(i / c)*ch;
+      const cv = renderCelula(m.img[ind], r, 480, ind === "rgb" ? "#ff1e1e" : "#000", 2.5, r.bbox, "#fff");
+      let iw2 = cw-4, ih2 = iw2/asp;
+      if (ih2 > ch-10){ ih2 = ch-10; iw2 = ih2*asp; }
+      doc.setFont("helvetica","bold"); doc.setFontSize(8.5);
+      doc.text(m.data, cx+cw/2, cy+3.5, {align:"center"});
+      doc.addImage(cv.toDataURL("image/jpeg", 0.9), "JPEG", cx+(cw-iw2)/2, cy+5, iw2, ih2);
+      doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(...cinza);
+      doc.text(ind === "rgb" ? `nuvem no talhão ${fmt(m.nuvem*100,0)}%` : `média ${fmt(m[ind].media)}`, cx+cw/2, cy+5+ih2+3.5, {align:"center"});
+      doc.setTextColor(0);
+    });
+    if (ind !== "rgb") legenda(ind, W/2-60, H-22, 120);
+    rodape();
+  }
+
+  // ---- relevo ----
+  if (r.relevo){
+    const rel = r.relevo;
+    doc.addPage(); cabecalho("RELEVO DO TALHÃO (ELEVAÇÃO)");
+    const cvR = renderCelula(rel.img, r, 900, "#000", 3, r.bbox, "#fff", true);
+    const bW = 165, bH = H - 22 - 32, e2 = Math.min(bW/cvR.width, bH/cvR.height);
+    const rw = cvR.width*e2, rh = cvR.height*e2;
+    doc.addImage(cvR.toDataURL("image/jpeg", 0.92), "JPEG", M+(bW-rw)/2, 22, rw, rh);
+    legenda("relevo", M+(bW-120)/2, 22+rh+6, 120);
+    const xr = M + bW + 12; let yr = 28;
+    doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("Resumo do relevo", xr, yr); yr += 9;
+    const lin = [
+      ["Altitude mínima", `${fmt(rel.min,0)} m`], ["Altitude máxima", `${fmt(rel.max,0)} m`],
+      ["Altitude média", `${fmt(rel.media,0)} m`], ["Desnível no talhão", `${fmt(rel.max-rel.min,0)} m`],
+      ["Declividade média", `${fmt(rel.declMedia,1)}%`], ["Declividade máxima", `${fmt(rel.declMax,1)}%`]
+    ];
+    doc.setFontSize(10);
+    for (const [k, v] of lin){
+      doc.setFont("helvetica","bold"); doc.setTextColor(...cinza); doc.text(k, xr, yr);
+      doc.setFont("helvetica","normal"); doc.setTextColor(0); doc.text(v, W-M, yr, {align:"right"});
+      yr += 7.5;
+    }
+    yr += 4; doc.setFontSize(8.5); doc.setTextColor(...cinza);
+    doc.text(doc.splitTextToSize("Fonte: Copernicus DEM GLO-30 (resolução de ~30 m). O modelo representa a altitude da superfície, incluindo árvores e construções. Cores do verde (mais baixo) ao marrom (mais alto); o sombreamento realça as ondulações. Declividade máxima no percentil 98.", W-M-xr), xr, yr);
+    doc.setTextColor(0);
+    rodape();
+  }
+
+  // ---- diário de manejo ----
+  if (evs.length){
+    doc.addPage(); cabecalho("DIÁRIO DE MANEJO DO PERÍODO");
+    const lnD = evs.map(e => [fmtData(e.data), (TIPOS[e.tipo]||TIPOS.outro).nome, e.animais ? String(e.animais) : "—", e.nota || ""]);
+    const larg = [26, 46, 20, W-2*M-92];
+    const porPag = Math.floor((H - 20 - 28)/7) - 1;
+    for (let ini = 0; ini < lnD.length; ini += porPag){
+      if (ini){ rodape(); doc.addPage(); cabecalho("DIÁRIO DE MANEJO DO PERÍODO (continuação)"); }
+      tabela(M, 28, ["Data","Manejo","Animais","Observação"], larg, lnD.slice(ini, ini+porPag), 7, 9);
+    }
+    rodape();
+  }
+
+  // ---- silagem ----
+  if (r.silagem){
+    const t = textoSilagem(r.silagem);
+    doc.addPage(); cabecalho("PONTO DE COLHEITA DA SILAGEM (MILHO)");
+    const cvS = document.createElement("canvas"); desenharSilagem(cvS, r, 1100, 380, true);
+    const swMM = W-2*M; doc.addImage(cvS.toDataURL("image/jpeg", 0.92), "JPEG", M, 20, swMM, swMM*380/1100);
+    let ys = 20 + swMM*380/1100 + 7;
+    doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(122,83,0); doc.text(t.titulo, M, ys); doc.setTextColor(0); ys += 6;
+    doc.setFont("helvetica","normal"); doc.setFontSize(9);
+    const plano = t.txt.replace(/<br>/g, "\n").replace(/<[^>]+>/g, "");
+    for (const par of plano.split("\n")){ const tt = doc.splitTextToSize(par, W-2*M); doc.text(tt, M, ys); ys += tt.length*4.2 + 1; }
+    rodape();
+  }
+
+  doc.save(`Laudo_${nomeArquivo(r.nome)}_${hojeISO()}.pdf`);
+}
+
+// ============================================================================
+// Inicialização
+// ============================================================================
+(function init(){
+  const fim = hojeISO(), d = new Date(); d.setMonth(d.getMonth()-6);
+  $("dFim").value = fim; $("dIni").value = isoLocal(d);
+  $("evData").value = fim;
+  $("evTipo").innerHTML = Object.entries(TIPOS).map(([k, t]) => `<option value="${k}">${t.nome}</option>`).join("");
+  const animaisVis = () => { $("evAnimaisBox").style.display = ["entrada","saida"].includes($("evTipo").value) ? "" : "none"; };
+  $("evTipo").onchange = animaisVis; animaisVis();
+  $("btnEvento").onclick = adicionarEvento;
+  $("btnProcessar").onclick = processar;
+  $("btnSalvar").onclick = salvarAtual;
+  // seleção múltipla
+  try{ estado.modoMulti = localStorage.getItem("ui.modoMulti") === "juntos" ? "juntos" : "lote"; }catch(e){ estado.modoMulti = "lote"; }
+  $("modoMulti").querySelectorAll("button").forEach(b => b.onclick = () => {
+    estado.modoMulti = b.dataset.m; try{ localStorage.setItem("ui.modoMulti", b.dataset.m); }catch(e){}
+    if (estado.atual && estado.atual.multi) definirAtual(montarMulti(estado.atual.multi));
+  });
+  $("btnSelTodos").onclick = () => {
+    const visiveis = [...$("lista").querySelectorAll(".talhao")].length;
+    const busca = $("buscaTalhao").value.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+    const ids = talhoes.filter(t => !busca || t.nome.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").includes(busca)).map(t => t.id);
+    if (visiveis) aplicarSelecao([...new Set([...idsSelecionados(), ...ids])]);
+  };
+  $("btnSelLimpar").onclick = () => aplicarSelecao([]);
+  $("btnLoteCsv").onclick = exportarLoteCsv;
+  $("btnLotePdfs").onclick = baixarLaudosLote;
+  $("nomeTalhao").addEventListener("keydown", e => { if (e.key === "Enter") salvarAtual(); });
+  $("btnPdf").onclick = () => { try{ gerarPdf(); }catch(e){ console.error(e); setStatus("Erro ao gerar o PDF: " + e.message, true); } };
+  $("btnSilagem").onclick = analisarSilagem;
+  const refazZonas = () => { const r = estado.resultado; if (!r) return; r.zonas = calcularZonas(r, opcoesZonas()); mostrarZonas(); if (estado.camada === "zonas") atualizarOverlay(); };
+  $("zonaN").onchange = refazZonas; $("zonaRelevo").onchange = refazZonas;
+  $("btnGeojson").onclick = () => { const r = estado.resultado; if (!r || !r.zonas) return;
+    baixarBlob(new Blob([JSON.stringify(zonasGeoJSON(r))], {type:"application/geo+json"}), `Zonas_${nomeArquivo(r.nome)}_${hojeISO()}.geojson`); };
+  $("btnShape").onclick = () => { const r = estado.resultado; if (!r || !r.zonas) return;
+    try{ const base = `Zonas_${nomeArquivo(r.nome)}_${hojeISO()}`; baixarBlob(shapefileZip(zonasGeoJSON(r), base), base + ".zip"); }
+    catch(e){ console.error(e); setStatus("Erro ao gerar o shapefile: " + e.message, true); } };
+  window.addEventListener("resize", () => { redesenharGrafico(); if (estado.resultado && estado.resultado.silagem) mostrarSilagem(); });
+  renderLista(); atualizarPainelAtual(); renderDiario();
+  if (talhoes.length){
+    const b = L.geoJSON({type:"FeatureCollection", features:talhoes.map(t => ({type:"Feature", properties:{}, geometry:t.geom}))}).getBounds();
+    mapa.fitBounds(b, {padding:[30,30], maxZoom:15});
+  }
+})();
+</script>
+
+<div id="toasts"></div>
+<div id="modal" class="modal" style="display:none" role="dialog" aria-modal="true">
+  <div class="modalbox"><div class="modalhead"><b id="modalTit"></b><button id="modalFechar" title="Fechar (Esc)">✕</button></div><div id="modalCorpo"></div></div>
+</div>
+<nav class="navmob" id="navMob">
+  <button data-v="mapa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"/></svg>Mapa</button>
+  <button data-v="talhoes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Talhões</button>
+  <button data-v="painel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 13h8V3H3zM13 21h8V11h-8zM13 3v6h8V3zM3 21h8v-6H3z"/></svg>Painel</button>
+  <button data-v="relatorio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Relatório</button>
+</nav>
+<div class="veu" id="veu"></div>
+<script src="js/dados.js"></script>
+<script src="js/relatorio.js"></script>
+<script src="js/campo.js"></script>
+<button id="topo" title="Voltar ao topo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg></button>
+
+<script>
+// ============================================================================
+// Interface: interações visuais (não altera os cálculos)
+// ============================================================================
+"use strict";
+(function ui(){
+  const $ = id => document.getElementById(id);
+  const guardar = (k, v) => { try{ localStorage.setItem("ui." + k, JSON.stringify(v)); }catch(e){} };
+  const ler = (k, d) => { try{ const v = localStorage.getItem("ui." + k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } };
+  let timer = null; // animação mês a mês
+  const redimensionar = () => setTimeout(() => { mapa.invalidateSize(); window.dispatchEvent(new Event("resize")); }, 220);
+
+  // ---- Avisos flutuantes ----
+  window.toast = (msg, erro=false) => {
+    const box = $("toasts"), t = document.createElement("div");
+    t.className = "toast" + (erro ? " erro" : "");
+    t.innerHTML = `<span>${erro ? "⚠" : "✓"}</span><span style="flex:1"></span><span class="x" title="Fechar">✕</span>`;
+    t.children[1].textContent = msg;
+    const fecha = () => { t.classList.add("sai"); setTimeout(() => t.remove(), 250); };
+    t.querySelector(".x").onclick = fecha;
+    box.appendChild(t); while (box.children.length > 3) box.firstChild.remove();
+    setTimeout(fecha, erro ? 7000 : 3800);
+  };
+
+  // ---- Cartões recolhíveis da lateral ----
+  const fechados = ler("fechados", []);
+  document.querySelectorAll(".fold").forEach(c => {
+    const k = c.dataset.fold;
+    if (fechados.includes(k)) c.classList.add("fechado");
+    c.querySelector("h2").addEventListener("click", () => {
+      c.classList.toggle("fechado");
+      guardar("fechados", [...document.querySelectorAll(".fold.fechado")].map(x => x.dataset.fold));
+    });
+  });
+
+  // ---- Mostrar/ocultar painel lateral ----
+  if (ler("semLateral", false)) document.body.classList.add("semlateral");
+  $("btnLateral").onclick = () => { document.body.classList.toggle("semlateral"); guardar("semLateral", document.body.classList.contains("semlateral")); redimensionar(); };
+
+  // ---- Busca de talhões ----
+  $("buscaTalhao").addEventListener("input", () => renderLista());
+
+  // ---- Atalhos de período ----
+  const presets = $("presets");
+  const marcarPreset = () => {
+    const ini = $("dIni").value, fim = $("dFim").value;
+    presets.querySelectorAll("button").forEach(b => {
+      const d = new Date(); d.setMonth(d.getMonth() - +b.dataset.m);
+      b.classList.toggle("on", fim === hojeISO() && ini === isoLocal(d));
+    });
+  };
+  presets.querySelectorAll("button").forEach(b => b.onclick = () => {
+    const d = new Date(); d.setMonth(d.getMonth() - +b.dataset.m);
+    $("dFim").value = hojeISO(); $("dIni").value = isoLocal(d); marcarPreset(); passos();
+  });
+  $("dIni").addEventListener("change", marcarPreset); $("dFim").addEventListener("change", marcarPreset);
+  marcarPreset();
+
+  // ---- Boas-vindas e passos ----
+  const passos = () => {
+    $("passo1").classList.toggle("feito", !!estado.atual);
+    $("passo2").classList.toggle("feito", !!($("dIni").value && $("dFim").value));
+  };
+  const visResultados = () => {
+    const vis = $("resultados").style.display === "flex";
+    $("boasVindas").style.display = vis || estado.lote || talhoes.length ? "none" : "";
+    ["mesPrev","mesNext","mesPlay"].forEach(id => $(id).disabled = !vis);
+    if (!vis) parar();
+    passos();
+  };
+  new MutationObserver(visResultados).observe($("resultados"), {attributes:true, attributeFilter:["style"]});
+  window.uiAtualizar = visResultados;
+  new MutationObserver(passos).observe($("painelAtual"), {attributes:true, attributeFilter:["style"]});
+  visResultados();
+
+  // ---- Navegação entre imagens e animação ----
+  const sel = $("selMes");
+  const passo = dir => {
+    const r = estado.resultado; if (!r || sel.disabled) return;
+    const n = r.meses.length; // índices 0..n-1 e -1 (média) no fim
+    let i = estado.mesIdx < 0 ? n : estado.mesIdx;
+    i = (i + dir + n + 1) % (n + 1);
+    estado.mesIdx = i === n ? -1 : i; sel.value = estado.mesIdx; atualizarOverlay();
+  };
+  function parar(){ clearInterval(timer); timer = null; $("mesPlay").classList.remove("on"); $("mesPlay").innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4v16l13-8z"/></svg>'; }
+  const tocar = () => {
+    if (timer){ parar(); return; }
+    const r = estado.resultado; if (!r) return;
+    if (["zonas","relevo","nada"].includes(estado.camada)){ estado.camada = "ndvi"; marcarSeg(); }
+    if (estado.mesIdx < 0 || estado.mesIdx >= r.meses.length-1){ estado.mesIdx = 0; sel.value = 0; atualizarOverlay(); }
+    $("mesPlay").classList.add("on"); $("mesPlay").innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+    timer = setInterval(() => {
+      if (!estado.resultado || estado.mesIdx >= estado.resultado.meses.length-1){ parar(); return; }
+      estado.mesIdx++; sel.value = estado.mesIdx; atualizarOverlay();
+    }, 1300);
+  };
+  $("mesPrev").onclick = () => { parar(); passo(-1); };
+  $("mesNext").onclick = () => { parar(); passo(1); };
+  $("mesPlay").onclick = tocar;
+
+  // ---- Destacar a miniatura que está no mapa ----
+  window.uiAposOverlay = () => {
+    document.querySelectorAll(".grid .cel.sel,.medias .cel.sel").forEach(c => c.classList.remove("sel"));
+    const cam = estado.camada, r = estado.resultado; if (!r) return;
+    if (estado.mesIdx < 0){
+      const m = $("media" + cam[0].toUpperCase() + cam.slice(1)); if (m) m.classList.add("sel");
+    } else {
+      const g = $("grid" + cam[0].toUpperCase() + cam.slice(1));
+      if (g && g.children[estado.mesIdx]) g.children[estado.mesIdx].classList.add("sel");
+    }
+  };
+
+  // ---- Mapa em tela cheia ----
+  const cheio = on => { $("cardMapa").classList.toggle("cheio", on); document.body.style.overflow = on ? "hidden" : ""; redimensionar(); };
+  $("btnCheio").onclick = () => cheio(!$("cardMapa").classList.contains("cheio"));
+
+  // ---- Atalhos de teclado ----
+  document.addEventListener("keydown", e => {
+    const t = e.target, digitando = /INPUT|TEXTAREA|SELECT/.test(t.tagName) || t.isContentEditable;
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)){ if (!$("btnProcessar").disabled) $("btnProcessar").click(); e.preventDefault(); return; }
+    if (e.key === "Escape" && $("cardMapa").classList.contains("cheio")){ cheio(false); return; }
+    if (digitando || e.ctrlKey || e.altKey || e.metaKey) return;
+    if (e.key === "ArrowLeft"){ parar(); passo(-1); e.preventDefault(); }
+    else if (e.key === "ArrowRight"){ parar(); passo(1); e.preventDefault(); }
+    else if (e.key === " " && estado.resultado){ tocar(); e.preventDefault(); }
+    else if (e.key.toLowerCase() === "f"){ $("btnCheio").click(); }
+  });
+
+  // ---- Menu de seções com destaque da seção visível ----
+  const links = [...document.querySelectorAll("#subnav a")];
+  links.forEach(a => a.addEventListener("click", ev => { ev.preventDefault(); const el = document.querySelector(a.getAttribute("href")); if (el) el.scrollIntoView({behavior:"smooth", block:"start"}); }));
+  const ativa = () => {
+    let atual = null;
+    for (const a of links){
+      const el = document.querySelector(a.getAttribute("href"));
+      a.style.display = el && el.style.display !== "none" ? "" : "none";
+      if (el && el.offsetParent && el.getBoundingClientRect().top < 160) atual = a;
+    }
+    links.forEach(a => a.classList.toggle("on", a === (atual || links[0])));
+    if (atual){ const nav = $("subnav"); if (atual.offsetLeft < nav.scrollLeft || atual.offsetLeft + atual.offsetWidth > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = atual.offsetLeft - 40; }
+  };
+  let raf = 0;
+  window.addEventListener("scroll", () => {
+    $("topo").classList.toggle("vis", window.scrollY > 600);
+    if (!raf) raf = requestAnimationFrame(() => { raf = 0; ativa(); });
+  }, {passive:true});
+  $("topo").onclick = () => window.scrollTo({top:0, behavior:"smooth"});
+  new MutationObserver(ativa).observe($("resultados"), {attributes:true, attributeFilter:["style"]});
+})();
+</script>
+</body>
+</html>
