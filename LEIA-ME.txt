@@ -36,6 +36,8 @@ NOVIDADES
 - Tema escuro: botão da lua no topo (automático → escuro → claro).
 
 NO CELULAR (APP INSTALÁVEL)
+- Endereço do app: https://matheusmrn.github.io/talhoes/
+  (código em https://github.com/Matheusmrn/talhoes — público)
 - O layout se adapta ao celular: menu embaixo (Mapa, Talhões, Painel,
   Relatório) e a lista de talhões abre como gaveta.
 - Para INSTALAR no celular, o app precisa estar num endereço https (internet).
